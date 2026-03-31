@@ -4,6 +4,7 @@ namespace BarTenderClone.Services
     {
         public string? AccessToken { get; set; }
         public int? TenantId { get; set; }
+        public string? ApiBaseUrl { get; set; }
         public bool IsAuthenticated => !string.IsNullOrEmpty(AccessToken);
     }
 }

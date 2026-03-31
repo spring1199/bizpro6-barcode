@@ -97,9 +97,36 @@ namespace BarTenderClone.Models
         [JsonProperty("document")]
         public string DocumentJson { get; set; } = string.Empty;
 
+        [JsonIgnore]
+        public string ResourceKey { get; set; } = string.Empty;
+
         // We will parse 'DocumentJson' into this property manually or via a helper
         [JsonIgnore]
         public ResourceDocument? ParsedDocument { get; set; }
+
+        [JsonProperty("tms_product")]
+        public ProductDto? TmsProduct
+        {
+            set => ApplyTopLevelData(product: value);
+        }
+
+        [JsonProperty("product")]
+        public ProductDto? ProductAlias
+        {
+            set => ApplyTopLevelData(product: value);
+        }
+
+        [JsonProperty("tms_product_rfid")]
+        public ProductRfidDto? TmsProductRfid
+        {
+            set => ApplyTopLevelData(productRfid: value);
+        }
+
+        [JsonProperty("product_rfid")]
+        public ProductRfidDto? ProductRfidAlias
+        {
+            set => ApplyTopLevelData(productRfid: value);
+        }
 
         // Helper properties for UI Binding
         [JsonIgnore]
@@ -253,15 +280,83 @@ namespace BarTenderClone.Models
                 return "Not Printed";
             }
         }
+
+        private void ApplyTopLevelData(ProductDto? product = null, ProductRfidDto? productRfid = null)
+        {
+            ParsedDocument ??= new ResourceDocument();
+
+            if (product != null)
+                ParsedDocument.Product = product;
+
+            if (productRfid != null)
+            {
+                ParsedDocument.ProductRfid = productRfid;
+
+                if (Id <= 0 && productRfid.Id > 0)
+                    Id = productRfid.Id;
+            }
+
+            try
+            {
+                DocumentJson = JsonConvert.SerializeObject(new
+                {
+                    tms_product = ParsedDocument.Product,
+                    tms_product_rfid = ParsedDocument.ProductRfid
+                });
+            }
+            catch
+            {
+            }
+        }
     }
 
     public class ResourceDocument
     {
-        [JsonProperty("tms_product")]
+        [JsonIgnore]
         public ProductDto Product { get; set; } = new();
 
-        [JsonProperty("tms_product_rfid")]
+        [JsonIgnore]
         public ProductRfidDto ProductRfid { get; set; } = new();
+
+        [JsonProperty("tms_product")]
+        public ProductDto? TmsProduct
+        {
+            set
+            {
+                if (value != null)
+                    Product = value;
+            }
+        }
+
+        [JsonProperty("product")]
+        public ProductDto? ProductAlias
+        {
+            set
+            {
+                if (value != null)
+                    Product = value;
+            }
+        }
+
+        [JsonProperty("tms_product_rfid")]
+        public ProductRfidDto? TmsProductRfid
+        {
+            set
+            {
+                if (value != null)
+                    ProductRfid = value;
+            }
+        }
+
+        [JsonProperty("product_rfid")]
+        public ProductRfidDto? ProductRfidAlias
+        {
+            set
+            {
+                if (value != null)
+                    ProductRfid = value;
+            }
+        }
     }
 
     public class ProductDto
@@ -278,6 +373,9 @@ namespace BarTenderClone.Models
         [JsonProperty("cost")]
         public object? CostRaw { get; set; }
 
+        [JsonProperty("price")]
+        public object? PriceRaw { get; set; }
+
         [JsonProperty("currency")]
         public object? CurrencyRaw { get; set; }
 
@@ -286,7 +384,7 @@ namespace BarTenderClone.Models
         {
             get
             {
-                var raw = CostRaw ?? CurrencyRaw;
+                var raw = CostRaw ?? PriceRaw ?? CurrencyRaw;
                 if (raw == null) return 0;
                 if (decimal.TryParse(raw.ToString(), out var result)) return result;
                 return 0;
@@ -316,11 +414,48 @@ namespace BarTenderClone.Models
 
     public class ProductRfidDto
     {
+        [JsonProperty("id")]
+        public long Id { get; set; }
+
         [JsonProperty("rfid")]
         public string? Rfid { get; set; }
 
-        [JsonProperty("branch")]
+        [JsonIgnore]
         public string? Branch { get; set; }
+
+        [JsonProperty("branch")]
+        public object? BranchRaw
+        {
+            set
+            {
+                if (value == null)
+                {
+                    Branch = null;
+                    return;
+                }
+
+                if (value is string branchName)
+                {
+                    Branch = branchName;
+                    return;
+                }
+
+                try
+                {
+                    var token = value is Newtonsoft.Json.Linq.JToken jToken
+                        ? jToken
+                        : Newtonsoft.Json.Linq.JToken.FromObject(value);
+
+                    Branch = token["data"]?["name"]?.ToString()
+                        ?? token["name"]?.ToString()
+                        ?? token.ToString();
+                }
+                catch
+                {
+                    Branch = value.ToString();
+                }
+            }
+        }
 
         [JsonProperty("boxNo")]
         public string? BoxNumber { get; set; }
