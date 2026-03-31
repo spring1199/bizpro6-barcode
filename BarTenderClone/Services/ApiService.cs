@@ -14,12 +14,14 @@ namespace BarTenderClone.Services
     {
         private readonly HttpClient _httpClient;
         private readonly IAuthenticationService _authService;
+        private readonly ISessionService _sessionService;
         private const string ApiUrl = "/api/services/app/Resource/Resources";
 
-        public ApiService(HttpClient httpClient, IAuthenticationService authService)
+        public ApiService(HttpClient httpClient, IAuthenticationService authService, ISessionService sessionService)
         {
             _httpClient = httpClient;
             _authService = authService;
+            _sessionService = sessionService;
         }
 
         public async Task<ResourceResult?> GetResourcesAsync(int skip = 0, int take = 25, string filter = "")
@@ -51,6 +53,8 @@ namespace BarTenderClone.Services
             var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl);
             request.Content = content;
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authService.AccessToken);
+            if (_sessionService.TenantId.HasValue)
+                request.Headers.Add("Abp.TenantId", _sessionService.TenantId.Value.ToString());
 
             var response = await _httpClient.SendAsync(request);
             var responseString = await response.Content.ReadAsStringAsync();
@@ -164,6 +168,8 @@ namespace BarTenderClone.Services
                 var request = new HttpRequestMessage(HttpMethod.Post, updateUrl);
                 request.Content = content;
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authService.AccessToken);
+                if (_sessionService.TenantId.HasValue)
+                    request.Headers.Add("Abp.TenantId", _sessionService.TenantId.Value.ToString());
 
                 var response = await _httpClient.SendAsync(request);
 
@@ -192,6 +198,8 @@ namespace BarTenderClone.Services
 
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authService.AccessToken);
+            if (_sessionService.TenantId.HasValue)
+                request.Headers.Add("Abp.TenantId", _sessionService.TenantId.Value.ToString());
 
             try
             {
@@ -214,6 +222,8 @@ namespace BarTenderClone.Services
 
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authService.AccessToken);
+            if (_sessionService.TenantId.HasValue)
+                request.Headers.Add("Abp.TenantId", _sessionService.TenantId.Value.ToString());
 
             try
             {
@@ -236,6 +246,8 @@ namespace BarTenderClone.Services
 
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authService.AccessToken);
+            if (_sessionService.TenantId.HasValue)
+                request.Headers.Add("Abp.TenantId", _sessionService.TenantId.Value.ToString());
 
             try
             {

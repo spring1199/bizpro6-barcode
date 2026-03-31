@@ -1,5 +1,6 @@
 using BarTenderClone.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Net.Http;
 using System.Text;
@@ -49,6 +50,7 @@ namespace BarTenderClone.Services
                     if (wrapper?.Result != null)
                     {
                         _sessionService.AccessToken = wrapper.Result.AccessToken;
+                        _sessionService.TenantId = ExtractTenantIdFromToken(wrapper.Result.AccessToken);
                         return true;
                     }
 
@@ -56,6 +58,7 @@ namespace BarTenderClone.Services
                     if (!string.IsNullOrEmpty(directResult?.AccessToken))
                     {
                         _sessionService.AccessToken = directResult.AccessToken;
+                        _sessionService.TenantId = ExtractTenantIdFromToken(directResult.AccessToken);
                         return true;
                     }
                 }
@@ -66,6 +69,33 @@ namespace BarTenderClone.Services
             }
 
             return false;
+        }
+
+        private static int? ExtractTenantIdFromToken(string? token)
+        {
+            if (string.IsNullOrEmpty(token)) return null;
+            try
+            {
+                var parts = token.Split('.');
+                if (parts.Length < 2) return null;
+                var payload = parts[1];
+                // Base64url → Base64
+                payload = payload.Replace('-', '+').Replace('_', '/');
+                switch (payload.Length % 4)
+                {
+                    case 2: payload += "=="; break;
+                    case 3: payload += "="; break;
+                }
+                var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+                var obj = JObject.Parse(json);
+                var tenantId = obj["http://www.aspnetboilerplate.com/identity/claims/tenantId"]
+                               ?? obj["tenantId"]
+                               ?? obj["tenant_id"];
+                if (tenantId != null && int.TryParse(tenantId.ToString(), out var id))
+                    return id;
+            }
+            catch { }
+            return null;
         }
 
         private class AbpResponseWrapper<T>
