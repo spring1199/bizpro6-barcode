@@ -1,0 +1,64 @@
+{
+  "Name": "New Template",
+  "Width": 226.77120000000002,
+  "Height": 151.1808,
+  "WidthInches": 2.3622,
+  "HeightInches": 1.5748,
+  "Elements": [
+    {
+      "X": -8.0,
+      "Y": 6.0,
+      "Width": 226.77120000000002,
+      "Height": 0.0,
+      "Content": "Дотор камер",
+      "FieldName": "ProductName",
+      "Type": 0,
+      "FontSize": 9.0,
+      "IsBold": true
+    },
+    {
+      "X": -6.0,
+      "Y": 19.0,
+      "Width": 226.77120000000002,
+      "Height": 0.0,
+      "Content": "10010074",
+      "FieldName": "ItemCode",
+      "Type": 0,
+      "FontSize": 8.0,
+      "IsBold": false
+    },
+    {
+      "X": -6.0,
+      "Y": 29.0,
+      "Width": 226.77120000000002,
+      "Height": 0.0,
+      "Content": "0₮",
+      "FieldName": "Price",
+      "Type": 0,
+      "FontSize": 10.0,
+      "IsBold": true
+    },
+    {
+      "X": -7.0,
+      "Y": 83.0,
+      "Width": 226.77120000000002,
+      "Height": 0.0,
+      "Content": "GS25 Үндсэн хөрөнгө   Ширхэг   2025-08-12",
+      "FieldName": "Branch",
+      "Type": 0,
+      "FontSize": 7.0,
+      "IsBold": false
+    },
+    {
+      "X": -8.0,
+      "Y": 44.0,
+      "Width": 226.77120000000002,
+      "Height": 35.0,
+      "Content": "0000000000000000B61F05C9",
+      "FieldName": "RFID",
+      "Type": 1,
+      "FontSize": 12.0,
+      "IsBold": false
+    }
+  ]
+}

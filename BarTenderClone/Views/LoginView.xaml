@@ -1,0 +1,90 @@
+<UserControl x:Class="BarTenderClone.Views.LoginView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.modernwpf.com/2019"
+             xmlns:local="clr-namespace:BarTenderClone.Views"
+             xmlns:vm="clr-namespace:BarTenderClone.ViewModels"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance Type=vm:LoginViewModel}"
+             HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Border Background="{StaticResource SurfaceBrush}" 
+            BorderBrush="{StaticResource BorderBrush}" 
+            BorderThickness="1" 
+            CornerRadius="8" 
+            Padding="32" 
+            Width="400">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" Opacity="0.1" BlurRadius="20" ShadowDepth="0"/>
+        </Border.Effect>
+        
+        <StackPanel>
+            <!-- Header -->
+            <TextBlock Text="Welcome Back" 
+                       HorizontalAlignment="Center" 
+                       FontSize="24" 
+                       FontWeight="SemiBold" 
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Margin="0,0,0,8"/>
+            
+            <TextBlock Text="Sign in to continue" 
+                       HorizontalAlignment="Center" 
+                       Style="{StaticResource CaptionTextStyle}"
+                       FontSize="13"
+                       Margin="0,0,0,32"/>
+            
+            <!-- Tenancy -->
+            <TextBlock Text="Tenancy Name" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
+            <TextBox Text="{Binding TenancyName, UpdateSourceTrigger=PropertyChanged}" 
+                     Style="{StaticResource ModernTextBoxStyle}"
+                     Margin="0,0,0,16"/>
+            
+            <!-- Username -->
+            <TextBlock Text="Username" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
+            <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" 
+                     Style="{StaticResource ModernTextBoxStyle}"
+                     Margin="0,0,0,16"/>
+            
+            <!-- Password -->
+            <TextBlock Text="Password" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
+            <PasswordBox x:Name="PasswordData" 
+                         Style="{StaticResource {x:Type PasswordBox}}"
+                         Padding="12,8"
+                         Height="36"
+                         FontSize="12"
+                         Margin="0,0,0,24">
+                <PasswordBox.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="4"/>
+                    </Style>
+                </PasswordBox.Resources>
+            </PasswordBox>
+            
+            <!-- Error Message -->
+            <TextBlock Text="{Binding ErrorMessage}" 
+                       Foreground="{StaticResource ErrorBrush}" 
+                       TextWrapping="Wrap" 
+                       FontSize="12"
+                       Margin="0,0,0,16"
+                       Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisConverter}}"/>
+            
+            <!-- Login Button -->
+            <Grid>
+                <Button Content="Sign In" 
+                        Command="{Binding LoginCommand}" 
+                        CommandParameter="{Binding ElementName=PasswordData}" 
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+                
+                <ui:ProgressRing IsActive="True" 
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}"
+                                 Width="20" Height="20"
+                                 Foreground="White"
+                                 HorizontalAlignment="Right"
+                                 Margin="0,0,16,0"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

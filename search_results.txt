@@ -1,0 +1,9 @@
+﻿C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\AppModules\Odm\DeliveryAppService.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\AppModules\Odm\FlespiSocketWorker.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\AppModules\Odm\UpdateDeliveryInfoJob.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\Chipmo\PosAppService.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\Gps\GpsAppService.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\IntegratedServices\KhanBankAppService.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\IntegratedServices\QPayAppService.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\Resource\ResourceAppSevice.cs
+C:\Users\mooji\OneDrive\Desktop\bizpro6\aspnet-core\src\Bpm.Application\XypDan\XypAppService.cs
