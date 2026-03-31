@@ -257,10 +257,10 @@ namespace BarTenderClone.Models
 
     public class ResourceDocument
     {
-        [JsonProperty("product")]
+        [JsonProperty("tms_product")]
         public ProductDto Product { get; set; } = new();
 
-        [JsonProperty("product_rfid")]
+        [JsonProperty("tms_product_rfid")]
         public ProductRfidDto ProductRfid { get; set; } = new();
     }
 
@@ -278,13 +278,17 @@ namespace BarTenderClone.Models
         [JsonProperty("cost")]
         public object? CostRaw { get; set; }
 
+        [JsonProperty("currency")]
+        public object? CurrencyRaw { get; set; }
+
         [JsonIgnore]
         public decimal Cost
         {
             get
             {
-                if (CostRaw == null) return 0;
-                if (decimal.TryParse(CostRaw.ToString(), out var result)) return result;
+                var raw = CostRaw ?? CurrencyRaw;
+                if (raw == null) return 0;
+                if (decimal.TryParse(raw.ToString(), out var result)) return result;
                 return 0;
             }
             set { CostRaw = value; }
@@ -318,7 +322,7 @@ namespace BarTenderClone.Models
         [JsonProperty("branch")]
         public string? Branch { get; set; }
 
-        [JsonProperty("boxNumber")]
+        [JsonProperty("boxNo")]
         public string? BoxNumber { get; set; }
 
         [JsonProperty("status")]
