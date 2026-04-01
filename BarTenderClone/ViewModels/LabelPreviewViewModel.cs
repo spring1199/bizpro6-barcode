@@ -1352,11 +1352,9 @@ namespace BarTenderClone.ViewModels
                 int successCount = 0;
                 foreach (var item in items)
                 {
-                    var success = await _apiService.UpdatePrintStatusAsync(item, true);
+                    var success = await SyncPrintStatusAsync(item, true, DateTime.Now);
                     if (success)
                     {
-                        item.IsPrinted = true;
-                        item.PrintErrorMessage = null;
                         successCount++;
                     }
                 }
@@ -1596,6 +1594,34 @@ namespace BarTenderClone.ViewModels
             }
         }
 
+        private void ApplyLocalPrintState(ResourceItem item, bool isPrinted, DateTime timestamp, string? errorMessage = null)
+        {
+            item.IsPrinted = isPrinted;
+            item.LastPrintedTime = timestamp;
+            item.PrintErrorMessage = errorMessage;
+
+            if (item.ParsedDocument?.ProductRfid != null)
+            {
+                item.ParsedDocument.ProductRfid.IsPrintRaw = isPrinted ? 2 : 1;
+                item.ParsedDocument.ProductRfid.LastPrintedTime = timestamp;
+                item.ParsedDocument.ProductRfid.PrintErrorMessage = errorMessage;
+            }
+        }
+
+        private async Task<bool> SyncPrintStatusAsync(ResourceItem item, bool isPrinted, DateTime timestamp, string? errorMessage = null)
+        {
+            ApplyLocalPrintState(item, isPrinted, timestamp, errorMessage);
+
+            try
+            {
+                return await _apiService.UpdatePrintStatusAsync(item, isPrinted, timestamp, errorMessage);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private async Task PrintSingleWithRfidAsync()
         {
             StatusMessage = "Printing...";
@@ -1644,6 +1670,7 @@ namespace BarTenderClone.ViewModels
                     // Show detailed per-label results
                     int succeeded = result.LabelsSucceeded;
                     int failed = result.LabelsFailed;
+                    bool statusSynced = true;
 
                     // Update Local State - зөвхөн бүх label амжилттай хэвлэгдсэн үед
                     if (SelectedProduct != null)
@@ -1655,13 +1682,18 @@ namespace BarTenderClone.ViewModels
                             SelectedProduct.PrintErrorMessage = null;
 
                             // Persist to backend and sync with SAP
-                            try { await _apiService.PrintAndPushRfidAsync(SelectedProduct.Id); } catch { }
+                            statusSynced = await SyncPrintStatusAsync(SelectedProduct, true, DateTime.Now);
                         }
                         else
                         {
                             // Partial failure - хэвлэгдсэн гэж тэмдэглэхгүй
                             SelectedProduct.IsPrinted = false;
                             SelectedProduct.PrintErrorMessage = $"Partial: {succeeded}/{Quantity} labels printed";
+                            statusSynced = await SyncPrintStatusAsync(
+                                SelectedProduct,
+                                false,
+                                DateTime.Now,
+                                $"Partial: {succeeded}/{Quantity} labels printed");
                         }
                     }
 
@@ -1675,6 +1707,11 @@ namespace BarTenderClone.ViewModels
                     }
 
                     LastPrintStatus = $"✓ Print completed at {result.Timestamp:HH:mm:ss} ({succeeded}/{Quantity})";
+
+                    if (!statusSynced)
+                    {
+                        StatusMessage += " Website status sync failed.";
+                    }
 
                     // Build detailed message
                     var detailsBuilder = new StringBuilder();
@@ -1693,6 +1730,7 @@ namespace BarTenderClone.ViewModels
                     }
                     detailsBuilder.AppendLine();
                     detailsBuilder.AppendLine($"RFID Encoding: {(result.RfidEncoded == true ? "Yes" : "No")}");
+                    detailsBuilder.AppendLine($"Website Status Sync: {(statusSynced ? "OK" : "FAILED")}");
 
                     if (result.RfidEncoded == true && result.LabelResults != null)
                     {
@@ -1715,16 +1753,22 @@ namespace BarTenderClone.ViewModels
                 {
                     // Legacy single-label or batch mode
                     // Update Local State
+                    bool statusSynced = true;
                     if (SelectedProduct != null)
                     {
                         SelectedProduct.IsPrinted = true;
                         SelectedProduct.LastPrintedTime = DateTime.Now;
                         SelectedProduct.PrintErrorMessage = null;
 
-                        try { await _apiService.PrintAndPushRfidAsync(SelectedProduct.Id); } catch { }
+                        statusSynced = await SyncPrintStatusAsync(SelectedProduct, true, DateTime.Now);
                     }
 
                     StatusMessage = $"Successfully printed {Quantity} label(s)!";
+
+                    if (!statusSynced)
+                    {
+                        StatusMessage += " Website status sync failed.";
+                    }
                     LastPrintStatus = $"✓ Print completed at {result.Timestamp:HH:mm:ss}";
 
                     if (result.RfidEncoded == true)
@@ -1733,7 +1777,7 @@ namespace BarTenderClone.ViewModels
                     }
 
                     System.Windows.MessageBox.Show(
-                        $"Print completed successfully!\n\nQuantity: {Quantity}\nRFID Encoding: {(result.RfidEncoded == true ? "Yes" : "No")}\nJob ID: {result.JobId}",
+                        $"Print completed successfully!\n\nQuantity: {Quantity}\nRFID Encoding: {(result.RfidEncoded == true ? "Yes" : "No")}\nWebsite Status Sync: {(statusSynced ? "OK" : "FAILED")}\nJob ID: {result.JobId}",
                         "Print Success",
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Information
@@ -1743,23 +1787,24 @@ namespace BarTenderClone.ViewModels
             else
             {
                 // Update Local State with error
+                bool statusSynced = true;
                 if (SelectedProduct != null)
                 {
                     SelectedProduct.IsPrinted = false;
                     SelectedProduct.PrintErrorMessage = result.ErrorMessage;
 
-                    try
-                    {
-                        await _apiService.UpdatePrintStatusAsync(
-                            SelectedProduct,
-                            isPrinted: false,
-                            lastPrintedTime: DateTime.Now,
-                            errorMessage: result.ErrorMessage);
-                    }
-                    catch { }
+                    statusSynced = await SyncPrintStatusAsync(
+                        SelectedProduct,
+                        false,
+                        DateTime.Now,
+                        result.ErrorMessage);
                 }
 
                 StatusMessage = $"Print failed: {result.ErrorMessage}";
+                if (!statusSynced)
+                {
+                    StatusMessage += " Website status sync failed.";
+                }
                 LastPrintStatus = $"✗ Print failed at {result.Timestamp:HH:mm:ss}";
 
                 System.Windows.MessageBox.Show(
@@ -1841,6 +1886,7 @@ namespace BarTenderClone.ViewModels
             if (batchResult.AllSucceeded)
             {
                 StatusMessage = $"Batch complete: {totalLabelsSucceeded} labels printed successfully!";
+                int statusSyncFailures = 0;
                 LastPrintStatus = $"✓ Batch completed at {batchResult.EndTime:HH:mm:ss}";
 
                 // Update status for all succeeded items
@@ -1853,14 +1899,23 @@ namespace BarTenderClone.ViewModels
                         originalItem.LastPrintedTime = DateTime.Now;
                         originalItem.PrintErrorMessage = null;
 
-                        try { await _apiService.PrintAndPushRfidAsync(originalItem.Id); } catch { }
+                        if (!await SyncPrintStatusAsync(originalItem, true, DateTime.Now))
+                        {
+                            statusSyncFailures++;
+                        }
                     }
+                }
+
+                if (statusSyncFailures > 0)
+                {
+                    StatusMessage += $" Website status sync failed for {statusSyncFailures} item(s).";
                 }
 
                 System.Windows.MessageBox.Show(
                     $"Batch print completed successfully!\n\n" +
                     $"Total Items: {batchResult.SuccessCount}\n" +
                     $"Total Labels: {totalLabelsSucceeded}\n" +
+                    $"Website Status Sync Failures: {statusSyncFailures}\n" +
                     $"RFID Encoding: {(EnableRfidEncoding ? "Yes" : "No")}\n" +
                     $"Duration: {(batchResult.EndTime - batchResult.StartTime).TotalSeconds:F1} seconds",
                     "Batch Success",
@@ -1870,6 +1925,8 @@ namespace BarTenderClone.ViewModels
             }
             else
             {
+                int statusSyncFailures = 0;
+
                 // Update succeeded items
                 foreach (var item in batchResult.ItemResults.Where(r => r.Result.Success))
                 {
@@ -1880,7 +1937,10 @@ namespace BarTenderClone.ViewModels
                         originalItem.LastPrintedTime = DateTime.Now;
                         originalItem.PrintErrorMessage = null;
 
-                        try { await _apiService.PrintAndPushRfidAsync(originalItem.Id); } catch { }
+                        if (!await SyncPrintStatusAsync(originalItem, true, DateTime.Now))
+                        {
+                            statusSyncFailures++;
+                        }
                     }
                 }
 
@@ -1893,16 +1953,22 @@ namespace BarTenderClone.ViewModels
                         originalItem.IsPrinted = false;
                         originalItem.PrintErrorMessage = item.Result.ErrorMessage;
 
-                        try
+                        if (!await SyncPrintStatusAsync(
+                            originalItem,
+                            false,
+                            DateTime.Now,
+                            item.Result.ErrorMessage))
                         {
-                            await _apiService.UpdatePrintStatusAsync(
-                                originalItem, false, DateTime.Now, item.Result.ErrorMessage);
+                            statusSyncFailures++;
                         }
-                        catch { }
                     }
                 }
 
                 StatusMessage = $"Batch stopped: {batchResult.SuccessCount} succeeded, {batchResult.FailureCount} failed";
+                if (statusSyncFailures > 0)
+                {
+                    StatusMessage += $" Website status sync failed for {statusSyncFailures} item(s).";
+                }
                 LastPrintStatus = $"✗ Batch stopped at {batchResult.EndTime:HH:mm:ss}";
 
                 // Find first failure for details
@@ -1925,6 +1991,7 @@ namespace BarTenderClone.ViewModels
                     $"Batch print stopped due to error!\n\n" +
                     $"Succeeded: {batchResult.SuccessCount} items ({totalLabelsSucceeded} labels)\n" +
                     $"Failed: {batchResult.FailureCount} items ({totalLabelsFailed} labels)\n" +
+                    $"Website Status Sync Failures: {statusSyncFailures}\n" +
                     $"Not Attempted: {batchResult.TotalItems - batchResult.SuccessCount - batchResult.FailureCount} items" +
                     failureDetails,
                     "Batch Stopped",

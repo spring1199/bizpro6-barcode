@@ -130,36 +130,27 @@ namespace BarTenderClone.Services
 
             try
             {
-                // Parse the existing document
-                var document = JObject.Parse(item.DocumentJson);
-                
-                // Locate the RFID portion
-                // The key could be "product_rfid" or "tms_product_rfid" depending on joins
-                JToken rfidPart = document["tms_product_rfid"] ?? document["product_rfid"];
-                
-                if (rfidPart == null || !rfidPart.HasValues)
+                var rfid = item.ParsedDocument?.ProductRfid?.Rfid;
+
+                if (string.IsNullOrWhiteSpace(rfid) && !string.IsNullOrWhiteSpace(item.DocumentJson))
                 {
-                    System.Diagnostics.Debug.WriteLine("UpdatePrintStatus: RFID document part not found.");
+                    var document = JObject.Parse(item.DocumentJson);
+                    rfid = document.SelectToken("tms_product_rfid.rfid")?.ToString()
+                        ?? document.SelectToken("product_rfid.rfid")?.ToString();
+                }
+
+                if (string.IsNullOrWhiteSpace(rfid))
+                {
+                    System.Diagnostics.Debug.WriteLine("UpdatePrintStatus: RFID value not found.");
                     return false;
                 }
 
-                // Get ID
-                long rfidId = rfidPart.Value<long>("id");
-                if (rfidId <= 0)
+                var payload = new UpdatePrintStatusRequest
                 {
-                    System.Diagnostics.Debug.WriteLine("UpdatePrintStatus: Invalid RFID ID.");
-                    return false;
-                }
-
-                // Update isPrint (2 = Printed, 1 = Not printed)
-                rfidPart["isPrint"] = isPrinted ? 2 : 1;
-                rfidPart["LastPrintedTime"] = (lastPrintedTime ?? DateTime.Now).ToString("O");
-
-                var payload = new
-                {
-                    Id = rfidId,
-                    Key = ResolveResourceKey(item, document),
-                    Document = rfidPart
+                    Rfid = rfid,
+                    IsPrint = isPrinted ? 2 : 1,
+                    LastPrintedTime = lastPrintedTime ?? DateTime.Now,
+                    PrintErrorMessage = errorMessage
                 };
 
                 var json = JsonConvert.SerializeObject(payload);
@@ -168,19 +159,20 @@ namespace BarTenderClone.Services
                     using var content = new StringContent(json, Encoding.UTF8, "application/json");
                     var request = new HttpRequestMessage(
                         HttpMethod.Post,
-                        BuildUri(baseUrl, "/api/services/app/ResourceManager/CreateOrUpdateResource"));
+                        BuildUri(baseUrl, "/api/services/app/Resource/UpdatePrintStatus"));
                     request.Content = content;
                     AddAuthorizationHeaders(request);
 
                     var response = await _httpClient.SendAsync(request);
-                    if (response.IsSuccessStatusCode)
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode && IsSuccessfulUpdatePrintStatusResponse(responseBody))
                     {
                         _sessionService.ApiBaseUrl = NormalizeBaseUrl(baseUrl);
                         return true;
                     }
 
-                    var errorBody = await response.Content.ReadAsStringAsync();
-                    System.Diagnostics.Debug.WriteLine($"UpdatePrintStatus failed for {baseUrl}: {response.StatusCode}\n{errorBody}");
+                    System.Diagnostics.Debug.WriteLine($"UpdatePrintStatus failed for {baseUrl}: {response.StatusCode}\n{responseBody}");
                 }
             }
             catch (Exception ex)
@@ -580,18 +572,32 @@ namespace BarTenderClone.Services
             return score;
         }
 
-        private static string ResolveResourceKey(ResourceItem item, JObject document)
+        private static bool IsSuccessfulUpdatePrintStatusResponse(string responseBody)
         {
-            if (!string.IsNullOrWhiteSpace(item.ResourceKey))
-                return item.ResourceKey;
+            if (string.IsNullOrWhiteSpace(responseBody))
+                return true;
 
-            if (document["tms_product_rfid"] != null)
-                return "tms_product_rfid";
+            try
+            {
+                var wrapped = JsonConvert.DeserializeObject<AbpResponseWrapper<UpdatePrintStatusResponse>>(responseBody);
+                if (wrapped?.Result != null)
+                    return wrapped.Result.Success;
+            }
+            catch
+            {
+            }
 
-            if (document["product_rfid"] != null)
-                return "product_rfid";
+            try
+            {
+                var direct = JsonConvert.DeserializeObject<UpdatePrintStatusResponse>(responseBody);
+                if (direct != null)
+                    return direct.Success;
+            }
+            catch
+            {
+            }
 
-            return "tms_product_rfid";
+            return false;
         }
 
         private sealed record ResourceQueryProfile(
