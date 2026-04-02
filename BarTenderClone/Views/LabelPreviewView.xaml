@@ -295,6 +295,9 @@
                               FrozenColumnCount="1"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Opened="ColumnToggleMenu_Opened"/>
+                        </DataGrid.ContextMenu>
                         
                         <DataGrid.Resources>
                             <!-- Premium Row Style -->
@@ -374,7 +377,7 @@
                             </DataGridTemplateColumn>
 
                             <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="80" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="RFID" Binding="{Binding Rfid}" Width="100" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="RFID" Binding="{Binding Rfid}" Width="180" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="70" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Product Name" Binding="{Binding ProductName}" Width="*" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
@@ -387,9 +390,13 @@
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" Width="50" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Price" Binding="{Binding Price, StringFormat=N0}" Width="60" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Date" Binding="{Binding CreationTime, StringFormat=MM-dd}" Width="55" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Branch" Binding="{Binding Branch}" Width="80" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Date" Binding="{Binding DisplayDate, StringFormat=MM-dd}" Width="60" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Acq. Date" Binding="{Binding AcquisitionDateFormatted}" Width="92" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Branch" Binding="{Binding Branch}" Width="120" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Box No" Binding="{Binding BoxNumber}" Width="70" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier}" Width="120" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="110" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Resp. Emp." Binding="{Binding ResponsibleEmployee}" Width="120" IsReadOnly="True"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -707,6 +714,7 @@
                             <ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3"
                                       ItemsSource="{Binding DataContext.AvailableFields, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                       SelectedItem="{Binding FieldName, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectionChanged="FieldBindingComboBox_SelectionChanged"
                                       Style="{StaticResource ModernComboBoxStyle}" Margin="0,0,0,8"/>
                             
                             <!-- Font Size (Text) / Dimensions (Barcode) -->

@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
@@ -411,6 +412,87 @@ namespace BarTenderClone.Views
                     viewModel.SelectedElement = null;
                 }
             }
+        }
+
+        private void FieldBindingComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is not ComboBox comboBox)
+            {
+                return;
+            }
+
+            if (comboBox.SelectedItem is not string fieldName)
+            {
+                return;
+            }
+
+            if (DataContext is not BarTenderClone.ViewModels.LabelPreviewViewModel viewModel || viewModel.SelectedElement == null)
+            {
+                return;
+            }
+
+            viewModel.SelectedElement.FieldName = fieldName;
+            viewModel.UpdateElementContentFromFieldPublic(viewModel.SelectedElement);
+        }
+
+        private void ColumnToggleMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ContextMenu menu)
+            {
+                return;
+            }
+
+            menu.Items.Clear();
+
+            var header = new MenuItem
+            {
+                Header = "Column settings",
+                IsEnabled = false,
+                FontWeight = FontWeights.Bold
+            };
+
+            menu.Items.Add(header);
+            menu.Items.Add(new Separator());
+
+            foreach (var column in ProductGrid.Columns)
+            {
+                var headerText = column.Header?.ToString() ?? "Unknown";
+                if (headerText == "Select")
+                {
+                    continue;
+                }
+
+                var menuItem = new MenuItem
+                {
+                    Header = headerText,
+                    IsCheckable = true,
+                    IsChecked = column.Visibility == Visibility.Visible,
+                    Tag = column
+                };
+
+                menuItem.Click += (_, _) =>
+                {
+                    if (menuItem.Tag is DataGridColumn taggedColumn)
+                    {
+                        taggedColumn.Visibility = menuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                };
+
+                menu.Items.Add(menuItem);
+            }
+
+            menu.Items.Add(new Separator());
+
+            var showAll = new MenuItem { Header = "Show all" };
+            showAll.Click += (_, _) =>
+            {
+                foreach (var column in ProductGrid.Columns)
+                {
+                    column.Visibility = Visibility.Visible;
+                }
+            };
+
+            menu.Items.Add(showAll);
         }
     }
 }

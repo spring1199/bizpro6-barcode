@@ -159,6 +159,44 @@ namespace BarTenderClone.Models
         [JsonIgnore]
         public DateTime CreationTime => ParsedDocument?.Product?.CreationTime ?? DateTime.MinValue;
 
+        [JsonIgnore]
+        public DateTime? RfidCreationTime => ParsedDocument?.ProductRfid?.CreationTime;
+
+        [JsonIgnore]
+        public DateTime AcquisitionDate => ParsedDocument?.ProductRfid?.AcquisitionDate
+                                           ?? ParsedDocument?.ProductRfid?.CreationTime
+                                           ?? ParsedDocument?.Product?.CreationTime
+                                           ?? DateTime.MinValue;
+
+        [JsonIgnore]
+        public string AcquisitionDateFormatted => AcquisitionDate != DateTime.MinValue
+            ? AcquisitionDate.ToString("yyyy-MM-dd")
+            : string.Empty;
+
+        [JsonIgnore]
+        public DateTime DisplayDate => AcquisitionDate;
+
+        [JsonIgnore]
+        public string Category => ParsedDocument?.Product?.Category ?? string.Empty;
+
+        [JsonIgnore]
+        public string MainCategory => ParsedDocument?.Product?.MainCategory ?? string.Empty;
+
+        [JsonIgnore]
+        public string SubCategory => ParsedDocument?.Product?.SubCategory ?? string.Empty;
+
+        [JsonIgnore]
+        public string Supplier => ParsedDocument?.Product?.NameOfSupplier ?? string.Empty;
+
+        [JsonIgnore]
+        public string Barcode => ParsedDocument?.Product?.Barcode ?? string.Empty;
+
+        [JsonIgnore]
+        public string Currency => ParsedDocument?.Product?.Currency ?? string.Empty;
+
+        [JsonIgnore]
+        public string ResponsibleEmployee => ParsedDocument?.ProductRfid?.ResponsibleEmployee ?? string.Empty;
+
         // Runtime properties for Print Status logic
         private bool _isPrinted;
         [JsonIgnore]
@@ -380,11 +418,14 @@ namespace BarTenderClone.Models
         public object? CurrencyRaw { get; set; }
 
         [JsonIgnore]
+        public string Currency => CurrencyRaw?.ToString() ?? string.Empty;
+
+        [JsonIgnore]
         public decimal Cost
         {
             get
             {
-                var raw = CostRaw ?? PriceRaw ?? CurrencyRaw;
+                var raw = CostRaw ?? PriceRaw;
                 if (raw == null) return 0;
                 if (decimal.TryParse(raw.ToString(), out var result)) return result;
                 return 0;
@@ -410,6 +451,24 @@ namespace BarTenderClone.Models
             }
             set { CreationTimeRaw = value; }
         }
+
+        [JsonProperty("category")]
+        public string? Category { get; set; }
+
+        [JsonProperty("mainCategory")]
+        public string? MainCategory { get; set; }
+
+        [JsonProperty("subCategory")]
+        public string? SubCategory { get; set; }
+
+        [JsonProperty("nameOfSupplier")]
+        public string? NameOfSupplier { get; set; }
+
+        [JsonProperty("barcode")]
+        public string? Barcode { get; set; }
+
+        [JsonProperty("productInfo")]
+        public string? ProductInfoJson { get; set; }
     }
 
     public class ProductRfidDto
@@ -474,6 +533,47 @@ namespace BarTenderClone.Models
             }
             set { StatusRaw = value; }
         }
+
+        [JsonProperty("CreationTime")]
+        public object? CreationTimeRaw { get; set; }
+
+        [JsonIgnore]
+        public DateTime? CreationTime
+        {
+            get
+            {
+                if (CreationTimeRaw == null) return null;
+                var str = CreationTimeRaw.ToString();
+                if (string.IsNullOrWhiteSpace(str)) return null;
+                if (DateTime.TryParse(str, out var dt)) return dt;
+                str = str.Replace(".", "-");
+                if (DateTime.TryParse(str, out dt)) return dt;
+                return null;
+            }
+            set { CreationTimeRaw = value; }
+        }
+
+        [JsonProperty("acquisitionDate")]
+        public object? AcquisitionDateRaw { get; set; }
+
+        [JsonIgnore]
+        public DateTime? AcquisitionDate
+        {
+            get
+            {
+                if (AcquisitionDateRaw == null) return null;
+                var str = AcquisitionDateRaw.ToString();
+                if (string.IsNullOrWhiteSpace(str)) return null;
+                if (DateTime.TryParse(str, out var dt)) return dt;
+                str = str.Replace(".", "-");
+                if (DateTime.TryParse(str, out dt)) return dt;
+                return null;
+            }
+            set { AcquisitionDateRaw = value; }
+        }
+
+        [JsonProperty("responsibleEmployee")]
+        public string? ResponsibleEmployee { get; set; }
 
         // Print status from backend - comes as "isPrint" with value 2 (printed) or 1 (not printed)
         // CHIPMO Standard: 2 = Printed, 1 = Not Printed

@@ -474,17 +474,38 @@ namespace BarTenderClone.Services
             foreach (var item in items)
             {
                 item.ResourceKey = resourceKey;
+                ParseDocumentJson(item);
+            }
+        }
 
-                if (string.IsNullOrEmpty(item.DocumentJson))
-                    continue;
+        private static void ParseDocumentJson(ResourceItem item)
+        {
+            if (string.IsNullOrWhiteSpace(item.DocumentJson))
+            {
+                item.ParsedDocument ??= new ResourceDocument();
+                System.Diagnostics.Debug.WriteLine($"[ApiService] Item ID={item.Id}: DocumentJson is empty");
+                return;
+            }
 
-                try
+            try
+            {
+                var settings = new JsonSerializerSettings
                 {
-                    item.ParsedDocument = JsonConvert.DeserializeObject<ResourceDocument>(item.DocumentJson);
-                }
-                catch
-                {
-                }
+                    Error = (sender, args) =>
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[ApiService] Item ID={item.Id}: JSON property error: {args.ErrorContext.Error.Message} at path '{args.ErrorContext.Path}'");
+                        args.ErrorContext.Handled = true;
+                    }
+                };
+
+                var parsedDocument = JsonConvert.DeserializeObject<ResourceDocument>(item.DocumentJson, settings);
+                item.ParsedDocument = parsedDocument ?? item.ParsedDocument ?? new ResourceDocument();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] Item ID={item.Id}: Failed to parse: {ex.Message}");
+                item.ParsedDocument ??= new ResourceDocument();
             }
         }
 

@@ -1,5 +1,6 @@
 using BarTenderClone.Models;
 using BarTenderClone.Helpers;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -296,18 +297,72 @@ namespace BarTenderClone.Services
                 return element.Content ?? string.Empty;
             }
 
+            var fallback = element.Content ?? string.Empty;
+
             return element.FieldName.ToUpperInvariant() switch
             {
-                "RFID" => dataSource.Rfid ?? element.Content ?? string.Empty,
-                "ITEMCODE" => dataSource.Code ?? element.Content ?? string.Empty,
-                "PRODUCTNAME" => dataSource.ProductName ?? element.Content ?? string.Empty,
+                "RFID" => dataSource.Rfid ?? fallback,
+                "ITEMCODE" => dataSource.Code ?? fallback,
+                "PRODUCTNAME" => dataSource.ProductName ?? fallback,
                 "PRICE" => $"{dataSource.Price:N0} MNT",
-                "BRANCH" => dataSource.Branch ?? element.Content ?? string.Empty,
-                "STATUS" => dataSource.Status ?? element.Content ?? string.Empty,
-                "UNIT" => dataSource.Unit ?? element.Content ?? string.Empty,
-                "DATE" => dataSource.CreationTime.ToString("yyyy-MM-dd"),
-                _ => element.Content ?? string.Empty
+                "BRANCH" => dataSource.Branch ?? fallback,
+                "STATUS" => dataSource.Status ?? fallback,
+                "UNIT" => dataSource.Unit ?? fallback,
+                "DATE" => dataSource.DisplayDate != DateTime.MinValue
+                    ? dataSource.DisplayDate.ToString("yyyy-MM-dd")
+                    : fallback,
+                "ACQUISITIONDATE" => dataSource.AcquisitionDateFormatted ?? fallback,
+                "CATEGORY" => dataSource.Category ?? fallback,
+                "MAINCATEGORY" => dataSource.MainCategory ?? fallback,
+                "SUBCATEGORY" => dataSource.SubCategory ?? fallback,
+                "SUPPLIER" => dataSource.Supplier ?? fallback,
+                "BARCODE" => dataSource.Barcode ?? fallback,
+                "CURRENCY" => dataSource.Currency ?? fallback,
+                "BOXNUMBER" => dataSource.BoxNumber ?? fallback,
+                "RESPONSIBLEEMPLOYEE" => dataSource.ResponsibleEmployee ?? fallback,
+                _ => ResolveFieldFromDocumentJson(element.FieldName, dataSource, fallback)
             };
+        }
+
+        private static string ResolveFieldFromDocumentJson(string fieldName, ResourceItem dataSource, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(dataSource.DocumentJson))
+            {
+                return fallback;
+            }
+
+            try
+            {
+                var document = JObject.Parse(dataSource.DocumentJson);
+
+                foreach (var section in new[] { "product_rfid", "tms_product_rfid", "product", "tms_product" })
+                {
+                    var token = document[section];
+                    if (token is not JObject obj)
+                    {
+                        continue;
+                    }
+
+                    var directMatch = obj[fieldName];
+                    if (directMatch != null)
+                    {
+                        return directMatch.ToString();
+                    }
+
+                    foreach (var property in obj.Properties())
+                    {
+                        if (property.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return property.Value.ToString();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return fallback;
         }
 
         /// <summary>

@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BarTenderClone.Views;
+using Newtonsoft.Json.Linq;
 
 namespace BarTenderClone.ViewModels
 {
@@ -41,6 +42,8 @@ namespace BarTenderClone.ViewModels
 
         [ObservableProperty]
         private ResourceItem? _selectedProduct;
+
+        public ResourceItem? LastActiveProduct { get; private set; }
 
         [ObservableProperty]
         private ObservableCollection<ResourceItem> _selectedProducts = new();
@@ -324,6 +327,11 @@ namespace BarTenderClone.ViewModels
 
         partial void OnSelectedProductChanged(ResourceItem? value)
         {
+            if (value != null)
+            {
+                LastActiveProduct = value;
+            }
+
             // When a product is selected, update the canvas accordingly
             if (value == null || IsMultiSelect) return;
 
@@ -373,6 +381,11 @@ namespace BarTenderClone.ViewModels
             if (e.PropertyName != nameof(LabelElement.IsSelected))
             {
                 IsDirty = true;
+            }
+
+            if (e.PropertyName == nameof(LabelElement.FieldName) && sender is LabelElement element)
+            {
+                UpdateElementContentFromField(element);
             }
         }
 
@@ -582,13 +595,8 @@ namespace BarTenderClone.ViewModels
 
             if (product.ParsedDocument == null)
             {
-                StatusMessage = "Error: Product data not properly loaded. Please try fetching data again.";
-                System.Windows.MessageBox.Show(
-                    "The selected product data is not properly loaded.\n\nPlease try:\n1. Click 'Fetch Data' again\n2. Select a different product",
-                    "Data Error",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Warning);
-                return;
+                product.ParsedDocument = new ResourceDocument();
+                StatusMessage = "Warning: Product data is incomplete. Some fields may be empty.";
             }
 
             // Clear existing elements (optional - you can comment this out if you want to keep existing elements)
@@ -633,22 +641,7 @@ namespace BarTenderClone.ViewModels
             {
                 // Only update elements that have a FieldName (data-bound elements)
                 if (string.IsNullOrWhiteSpace(element.FieldName)) continue;
-
-                // Resolve the field value based on FieldName
-                string newContent = element.FieldName.ToUpperInvariant() switch
-                {
-                    "RFID" => product.Rfid ?? element.Content,
-                    "ITEMCODE" => product.Code ?? element.Content,
-                    "PRODUCTNAME" => product.ProductName ?? element.Content,
-                    "PRICE" => $"MNT {product.Price:N0}",
-                    "BRANCH" => product.Branch ?? element.Content,
-                    "STATUS" => product.Status ?? element.Content,
-                    "UNIT" => product.Unit ?? element.Content,
-                    "DATE" => product.CreationTime.ToString("yyyy-MM-dd"),
-                    _ => element.Content // Keep original if unknown field
-                };
-
-                element.Content = newContent;
+                UpdateElementContentFromField(element, product);
             }
 
             StatusMessage = $"Өгөгдөл шинэчлэгдлээ: {product.ProductName}";
@@ -749,7 +742,7 @@ namespace BarTenderClone.ViewModels
             double defaultFontSize = LabelSizeHelper.CalculateResponsiveFontSize(
                 TemplateWidthInches, TemplateHeightInches, FontSizeCategory.Medium);
 
-            Elements.Add(new LabelElement
+            var newElement = new LabelElement
             {
                 Type = ElementType.Text,
                 Content = "Sample Text",
@@ -757,7 +750,10 @@ namespace BarTenderClone.ViewModels
                 Y = margins.top,
                 FontSize = defaultFontSize,
                 Width = Template.Width - margins.left - margins.right
-            });
+            };
+
+            Elements.Add(newElement);
+            SelectElement(newElement);
             IsDirty = true;
         }
 
@@ -770,7 +766,7 @@ namespace BarTenderClone.ViewModels
             
             double width = LabelSizeHelper.CalculateCode128Width("12345678", PrinterDpi);
 
-            Elements.Add(new LabelElement
+            var newBarcode = new LabelElement
             {
                 Type = ElementType.Barcode,
                 Content = "12345678",
@@ -778,8 +774,21 @@ namespace BarTenderClone.ViewModels
                 Y = Template.Height / 2,
                 Width = width,
                 Height = height
-            });
+            };
+
+            Elements.Add(newBarcode);
+            SelectElement(newBarcode);
             IsDirty = true;
+        }
+
+        private void SelectElement(LabelElement element)
+        {
+            foreach (var existing in Elements)
+            {
+                existing.IsSelected = ReferenceEquals(existing, element);
+            }
+
+            SelectedElement = element;
         }
 
         [RelayCommand]
@@ -2012,7 +2021,111 @@ namespace BarTenderClone.ViewModels
             "Branch",
             "Status",
             "Unit",
-            "Date"
+            "Date",
+            "AcquisitionDate",
+            "Category",
+            "MainCategory",
+            "SubCategory",
+            "Supplier",
+            "Barcode",
+            "Currency",
+            "BoxNumber",
+            "ResponsibleEmployee"
         };
+
+        public void UpdateElementContentFromFieldPublic(LabelElement element)
+        {
+            UpdateElementContentFromField(element);
+        }
+
+        private void UpdateElementContentFromField(LabelElement element, ResourceItem? product = null)
+        {
+            if (string.IsNullOrWhiteSpace(element.FieldName) || element.FieldName == "None")
+            {
+                element.Content = $"[{element.FieldName ?? "None"}]";
+                return;
+            }
+
+            product ??= SelectedProduct ?? LastActiveProduct;
+            if (product == null)
+            {
+                element.Content = $"{{{element.FieldName}}}";
+                return;
+            }
+
+            var resolved = ResolveFieldFromProduct(element.FieldName, product, element.Content ?? string.Empty);
+            element.Content = !string.IsNullOrWhiteSpace(resolved)
+                ? resolved
+                : $"{{{element.FieldName}}}";
+        }
+
+        private string ResolveFieldFromProduct(string fieldName, ResourceItem product, string fallback)
+        {
+            var normalizedField = fieldName.ToUpperInvariant();
+
+            var resolved = normalizedField switch
+            {
+                "RFID" => product.Rfid,
+                "ITEMCODE" => product.Code,
+                "PRODUCTNAME" => product.ProductName,
+                "PRICE" => $"MNT {product.Price:N0}",
+                "BRANCH" => product.Branch,
+                "STATUS" => product.Status,
+                "UNIT" => product.Unit,
+                "DATE" => product.DisplayDate != DateTime.MinValue ? product.DisplayDate.ToString("yyyy-MM-dd") : fallback,
+                "ACQUISITIONDATE" => product.AcquisitionDateFormatted,
+                "CATEGORY" => product.Category,
+                "MAINCATEGORY" => product.MainCategory,
+                "SUBCATEGORY" => product.SubCategory,
+                "SUPPLIER" => product.Supplier,
+                "BARCODE" => product.Barcode,
+                "CURRENCY" => product.Currency,
+                "BOXNUMBER" => product.BoxNumber,
+                "RESPONSIBLEEMPLOYEE" => product.ResponsibleEmployee,
+                _ => ResolveFieldFromDocumentJson(fieldName, product)
+            };
+
+            return string.IsNullOrWhiteSpace(resolved) ? fallback : resolved;
+        }
+
+        private static string? ResolveFieldFromDocumentJson(string fieldName, ResourceItem product)
+        {
+            if (string.IsNullOrWhiteSpace(product.DocumentJson))
+            {
+                return null;
+            }
+
+            try
+            {
+                var document = JObject.Parse(product.DocumentJson);
+
+                foreach (var section in new[] { "product_rfid", "tms_product_rfid", "product", "tms_product" })
+                {
+                    if (document[section] is not JObject obj)
+                    {
+                        continue;
+                    }
+
+                    var directMatch = obj[fieldName];
+                    if (directMatch != null)
+                    {
+                        return directMatch.ToString();
+                    }
+
+                    foreach (var property in obj.Properties())
+                    {
+                        if (property.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return property.Value.ToString();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
     }
 }

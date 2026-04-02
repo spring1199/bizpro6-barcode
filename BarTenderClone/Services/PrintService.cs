@@ -102,14 +102,29 @@ namespace BarTenderClone.Services
                         Name = original.ParsedDocument.Product.Name,
                         ItemCode = original.ParsedDocument.Product.ItemCode,
                         MeasureUnit = original.ParsedDocument.Product.MeasureUnit,
-                        Cost = original.ParsedDocument.Product.Cost,
-                        CreationTime = original.ParsedDocument.Product.CreationTime
+                        CostRaw = original.ParsedDocument.Product.CostRaw,
+                        PriceRaw = original.ParsedDocument.Product.PriceRaw,
+                        CurrencyRaw = original.ParsedDocument.Product.CurrencyRaw,
+                        CreationTimeRaw = original.ParsedDocument.Product.CreationTimeRaw,
+                        Category = original.ParsedDocument.Product.Category,
+                        MainCategory = original.ParsedDocument.Product.MainCategory,
+                        SubCategory = original.ParsedDocument.Product.SubCategory,
+                        NameOfSupplier = original.ParsedDocument.Product.NameOfSupplier,
+                        Barcode = original.ParsedDocument.Product.Barcode,
+                        ProductInfoJson = original.ParsedDocument.Product.ProductInfoJson
                     } : new ProductDto(),
                     ProductRfid = original.ParsedDocument.ProductRfid != null ? new ProductRfidDto
                     {
                         Rfid = newRfidData,  // Override with new RFID data
                         Branch = original.ParsedDocument.ProductRfid.Branch,
-                        Status = original.ParsedDocument.ProductRfid.Status
+                        BoxNumber = original.ParsedDocument.ProductRfid.BoxNumber,
+                        StatusRaw = original.ParsedDocument.ProductRfid.StatusRaw,
+                        CreationTimeRaw = original.ParsedDocument.ProductRfid.CreationTimeRaw,
+                        AcquisitionDateRaw = original.ParsedDocument.ProductRfid.AcquisitionDateRaw,
+                        ResponsibleEmployee = original.ParsedDocument.ProductRfid.ResponsibleEmployee,
+                        IsPrintRaw = original.ParsedDocument.ProductRfid.IsPrintRaw,
+                        LastPrintedTimeRaw = original.ParsedDocument.ProductRfid.LastPrintedTimeRaw,
+                        PrintErrorMessage = original.ParsedDocument.ProductRfid.PrintErrorMessage
                     } : new ProductRfidDto { Rfid = newRfidData }
                 } : null
             };
