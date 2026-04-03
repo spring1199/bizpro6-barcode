@@ -595,8 +595,36 @@ namespace BarTenderClone.ViewModels
 
             if (product.ParsedDocument == null)
             {
-                product.ParsedDocument = new ResourceDocument();
-                StatusMessage = "Warning: Product data is incomplete. Some fields may be empty.";
+                System.Diagnostics.Debug.WriteLine($"[LabelPreview] WARNING: Product ID={product.Id} has null ParsedDocument. Attempting re-parse from DocumentJson.");
+
+                // Attempt to re-parse from DocumentJson before giving up
+                if (!string.IsNullOrWhiteSpace(product.DocumentJson))
+                {
+                    try
+                    {
+                        product.ParsedDocument = Newtonsoft.Json.JsonConvert.DeserializeObject<ResourceDocument>(product.DocumentJson);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[LabelPreview] ERROR: Re-parse failed for Product ID={product.Id}: {ex.Message}");
+                    }
+                }
+
+                if (product.ParsedDocument == null)
+                {
+                    product.ParsedDocument = new ResourceDocument();
+                    StatusMessage = "Анхааруулга: Барааны мэдээлэл дутуу байна. 'Fetch Data' дахин дарна уу.";
+                    System.Diagnostics.Debug.WriteLine($"[LabelPreview] WARNING: Product ID={product.Id} created empty ParsedDocument as fallback.");
+
+                    System.Windows.MessageBox.Show(
+                        "Барааны мэдээлэл зөв ачаалагдаагүй байна.\n\n" +
+                        "Дараах алхмуудыг хийж үзнэ үү:\n" +
+                        "1. 'Fetch Data' товч дахин дарах\n" +
+                        "2. Өөр бараа сонгож туршах",
+                        "Мэдээлэл дутуу",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                }
             }
 
             // Clear existing elements (optional - you can comment this out if you want to keep existing elements)

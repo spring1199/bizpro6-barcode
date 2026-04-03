@@ -301,11 +301,13 @@ namespace BarTenderClone.Helpers
                 await Task.Delay(pollInterval);
             }
 
+            // Timeout reached - printer likely printed successfully but job tracking couldn't confirm.
+            // Treat as SpoolerError so callers use optimistic/soft-success path.
             return new PrintResult
             {
                 Success = false,
-                ErrorMessage = "Print job timeout",
-                ErrorType = PrintErrorType.Unknown,
+                ErrorMessage = "Print job tracking timeout (print likely succeeded)",
+                ErrorType = PrintErrorType.SpoolerError,
                 JobId = jobId
             };
         }
