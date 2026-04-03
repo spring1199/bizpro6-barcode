@@ -66,6 +66,9 @@ namespace BarTenderClone
         {
             await AppHost!.StartAsync();
 
+            // Wire up global exception handler to prevent crashes
+            this.DispatcherUnhandledException += OnDispatcherUnhandledException;
+
             var startupForm = AppHost.Services.GetRequiredService<MainWindow>();
             startupForm.Show();
 

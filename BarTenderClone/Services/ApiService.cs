@@ -600,25 +600,32 @@ namespace BarTenderClone.Services
 
             try
             {
-                var wrapped = JsonConvert.DeserializeObject<AbpResponseWrapper<UpdatePrintStatusResponse>>(responseBody);
-                if (wrapped?.Result != null)
-                    return wrapped.Result.Success;
+                var json = JObject.Parse(responseBody);
+
+                // ABP framework boolean response: {"result": true, "success": true}
+                var resultToken = json["result"];
+                if (resultToken != null && resultToken.Type == JTokenType.Boolean)
+                    return resultToken.Value<bool>();
+
+                // ABP framework object response: {"result": {"success": true}}
+                if (resultToken != null && resultToken.Type == JTokenType.Object)
+                {
+                    var innerSuccess = resultToken["success"];
+                    if (innerSuccess != null)
+                        return innerSuccess.Value<bool>();
+                }
+
+                // Top-level success field: {"success": true}
+                var successToken = json["success"];
+                if (successToken != null && successToken.Type == JTokenType.Boolean)
+                    return successToken.Value<bool>();
             }
             catch
             {
             }
 
-            try
-            {
-                var direct = JsonConvert.DeserializeObject<UpdatePrintStatusResponse>(responseBody);
-                if (direct != null)
-                    return direct.Success;
-            }
-            catch
-            {
-            }
-
-            return false;
+            // If we can't parse but HTTP was 200, assume success
+            return true;
         }
 
         private sealed record ResourceQueryProfile(

@@ -631,7 +631,7 @@ namespace BarTenderClone.Models
         [JsonProperty("rfid")]
         public string Rfid { get; set; } = string.Empty;
 
-        // Backend expects "isPrint" with value 1 (printed) or 2 (not printed)
+        // Backend expects "isPrint" with value 2 (printed/Тийм) or 1 (not printed/Үгүй)
         [JsonProperty("isPrint")]
         public int IsPrint { get; set; }
 
