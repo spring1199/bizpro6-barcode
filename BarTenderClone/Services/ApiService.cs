@@ -509,6 +509,21 @@ namespace BarTenderClone.Services
             }
         }
 
+        private static void ValidateTenantConsistency(IEnumerable<ResourceItem> items)
+        {
+            var tenantIds = items
+                .Select(item => item.GetFieldValue("TenantId"))
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (tenantIds.Count > 1)
+            {
+                throw new Exception(
+                    $"Mixed-tenant payload detected in resource response: {string.Join(", ", tenantIds)}");
+            }
+        }
+
         private IEnumerable<string> GetCandidateBaseUrls()
         {
             return _configuredBaseUrls

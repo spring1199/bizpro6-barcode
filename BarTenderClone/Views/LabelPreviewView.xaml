@@ -685,6 +685,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="100"/>
@@ -713,7 +714,9 @@
                                        Style="{StaticResource BodyTextStyle}" VerticalAlignment="Center"/>
                             <ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3"
                                       ItemsSource="{Binding DataContext.AvailableFields, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      SelectedItem="{Binding FieldName, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedValuePath="Key"
+                                      SelectedValue="{Binding FieldName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                       SelectionChanged="FieldBindingComboBox_SelectionChanged"
                                       Style="{StaticResource ModernComboBoxStyle}" Margin="0,0,0,8"/>
                             
@@ -811,11 +814,39 @@
                                     </Style>
                                 </TextBox.Style>
                             </TextBox>
+                            <!-- Bold (Text only) -->
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Bold:" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource BodyTextStyle}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Type}" Value="Text">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <CheckBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3"
+                                      IsChecked="{Binding IsBold, Mode=TwoWay}"
+                                      Content="Bold text"
+                                      VerticalAlignment="Center" Margin="0,0,0,8">
+                                <CheckBox.Style>
+                                    <Style TargetType="CheckBox">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Type}" Value="Text">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </CheckBox.Style>
+                            </CheckBox>
                         </Grid>
-                        
+
                         <!-- Empty State Message -->
-                        <TextBlock Grid.Row="1" 
-                                   Text="Select an element to edit its properties" 
+                        <TextBlock Grid.Row="1"
+                                   Text="Select an element to edit its properties"
                                    FontStyle="Italic"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"

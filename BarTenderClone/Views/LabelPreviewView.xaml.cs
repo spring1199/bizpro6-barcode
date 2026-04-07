@@ -417,21 +417,17 @@ namespace BarTenderClone.Views
         private void FieldBindingComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (sender is not ComboBox comboBox)
-            {
                 return;
-            }
 
-            if (comboBox.SelectedItem is not string fieldName)
-            {
+            // SelectedValue is the Key string (via SelectedValuePath="Key")
+            var fieldName = comboBox.SelectedValue as string;
+            if (string.IsNullOrEmpty(fieldName))
                 return;
-            }
 
             if (DataContext is not BarTenderClone.ViewModels.LabelPreviewViewModel viewModel || viewModel.SelectedElement == null)
-            {
                 return;
-            }
 
-            viewModel.SelectedElement.FieldName = fieldName;
+            // FieldName already updated by TwoWay SelectedValue binding; trigger content refresh
             viewModel.UpdateElementContentFromFieldPublic(viewModel.SelectedElement);
         }
 
@@ -493,6 +489,17 @@ namespace BarTenderClone.Views
             };
 
             menu.Items.Add(showAll);
+
+            var clearAll = new MenuItem { Header = "Clear all" };
+            clearAll.Click += (_, _) =>
+            {
+                foreach (var column in ProductGrid.Columns)
+                {
+                    if (column.Header?.ToString() != "Select")
+                        column.Visibility = Visibility.Collapsed;
+                }
+            };
+            menu.Items.Add(clearAll);
         }
     }
 }

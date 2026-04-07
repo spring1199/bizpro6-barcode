@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 
@@ -91,6 +93,9 @@ namespace BarTenderClone.Models
 
     public class ResourceItem : ObservableObject
     {
+        private JObject? _documentObject;
+        private IReadOnlyDictionary<string, string>? _documentFieldValues;
+
         [JsonProperty("id")]
         public long Id { get; set; }
 
@@ -196,6 +201,242 @@ namespace BarTenderClone.Models
 
         [JsonIgnore]
         public string ResponsibleEmployee => ParsedDocument?.ProductRfid?.ResponsibleEmployee ?? string.Empty;
+
+        // Indexer for dynamic field access (used by dynamic grid columns)
+        [JsonIgnore]
+        public string? this[string fieldName] => GetFieldValue(fieldName);
+
+        /// <summary>
+        /// Flattened document fields discovered from the raw JSON payload.
+        /// Keys are stable JSON paths such as `tms_product.name` or `tms_product_rfid.branch`.
+        /// </summary>
+        [JsonIgnore]
+        public IReadOnlyDictionary<string, string> DocumentFieldValues
+            => _documentFieldValues ??= BuildDocumentFieldValues();
+
+        public string? GetFieldValue(string? fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName))
+                return null;
+
+            return CanonicalizeFieldName(fieldName).ToUpperInvariant() switch
+            {
+                "NONE" => null,
+                "RFID" => EmptyToNull(Rfid),
+                "ITEMCODE" => EmptyToNull(Code),
+                "PRODUCTNAME" => EmptyToNull(ProductName),
+                "PRICE" => $"MNT {Price:N0}",
+                "BRANCH" => EmptyToNull(Branch),
+                "STATUS" => EmptyToNull(Status),
+                "UNIT" => EmptyToNull(Unit),
+                "DATE" => CreationTime != DateTime.MinValue ? CreationTime.ToString("yyyy-MM-dd") : null,
+                "ACQUISITIONDATE" => EmptyToNull(AcquisitionDateFormatted),
+                "CATEGORY" => EmptyToNull(Category),
+                "MAINCATEGORY" => EmptyToNull(MainCategory),
+                "SUBCATEGORY" => EmptyToNull(SubCategory),
+                "SUPPLIER" => EmptyToNull(Supplier),
+                "BARCODE" => EmptyToNull(Barcode),
+                "CURRENCY" => EmptyToNull(Currency),
+                "BOXNUMBER" => EmptyToNull(BoxNumber),
+                "RESPONSIBLEEMPLOYEE" => EmptyToNull(ResponsibleEmployee),
+                _ => GetDocumentFieldValue(fieldName)
+            };
+        }
+
+        public IReadOnlyCollection<string> GetAvailableFieldNames()
+        {
+            return DocumentFieldValues.Keys
+                .Where(key => !string.IsNullOrWhiteSpace(key) && !key.Contains("["))
+                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        public static string CanonicalizeFieldName(string fieldName)
+        {
+            var trimmed = fieldName?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(trimmed))
+                return string.Empty;
+
+            return trimmed.ToLowerInvariant() switch
+            {
+                "rfid" => "RFID",
+                "itemcode" => "ItemCode",
+                "name" => "ProductName",
+                "productname" => "ProductName",
+                "cost" => "Price",
+                "price" => "Price",
+                "measureunit" => "Unit",
+                "unit" => "Unit",
+                "creationtime" => "Date",
+                "date" => "Date",
+                "nameofsupplier" => "Supplier",
+                "supplier" => "Supplier",
+                "boxnumber" => "BoxNumber",
+                "acquisitiondate" => "AcquisitionDate",
+                "responsibleemployee" => "ResponsibleEmployee",
+                "maincategory" => "MainCategory",
+                "subcategory" => "SubCategory",
+                _ => char.ToUpperInvariant(trimmed[0]) + trimmed[1..]
+            };
+        }
+
+        private string? GetDocumentFieldValue(string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName))
+                return null;
+
+            var requestedKey = BuildLookupKey(fieldName);
+
+            foreach (var kvp in DocumentFieldValues)
+            {
+                if (kvp.Key.Contains("["))
+                    continue;
+
+                if (BuildLookupKey(kvp.Key).Equals(requestedKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.IsNullOrWhiteSpace(kvp.Value) ? null : kvp.Value;
+                }
+            }
+
+            return null;
+        }
+
+        private IReadOnlyDictionary<string, string> BuildDocumentFieldValues()
+        {
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var document = GetDocumentObject();
+            if (document == null)
+                return values;
+
+            FlattenToken(document, string.Empty, values);
+            return values;
+        }
+
+        private static void FlattenToken(JToken token, string prefix, IDictionary<string, string> values)
+        {
+            if (token is JValue scalar)
+            {
+                if (scalar.Type == JTokenType.String &&
+                    TryParseEmbeddedJson(scalar.ToString(), out var embeddedToken))
+                {
+                    FlattenToken(embeddedToken, prefix, values);
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(prefix) && scalar.Value != null)
+                {
+                    values[prefix] = scalar.Value.ToString() ?? string.Empty;
+                }
+                return;
+            }
+
+            if (token is JObject obj)
+            {
+                foreach (var property in obj.Properties())
+                {
+                    var childPrefix = string.IsNullOrWhiteSpace(prefix)
+                        ? property.Name
+                        : $"{prefix}.{property.Name}";
+
+                    FlattenToken(property.Value, childPrefix, values);
+                }
+                return;
+            }
+
+            if (token is JArray array)
+            {
+                if (TryFlattenNameValueArray(array, prefix, values))
+                    return;
+
+                for (var i = 0; i < array.Count; i++)
+                {
+                    var childPrefix = string.IsNullOrWhiteSpace(prefix)
+                        ? i.ToString()
+                        : $"{prefix}[{i}]";
+
+                    FlattenToken(array[i], childPrefix, values);
+                }
+            }
+        }
+
+        private static bool TryParseEmbeddedJson(string? rawValue, out JToken token)
+        {
+            token = JValue.CreateNull();
+
+            if (string.IsNullOrWhiteSpace(rawValue))
+                return false;
+
+            var trimmed = rawValue.Trim();
+            if (!(trimmed.StartsWith("[") || trimmed.StartsWith("{")))
+                return false;
+
+            try
+            {
+                token = JToken.Parse(trimmed);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryFlattenNameValueArray(JArray array, string prefix, IDictionary<string, string> values)
+        {
+            var didFlatten = false;
+
+            foreach (var item in array.OfType<JObject>())
+            {
+                var name = item["name"]?.ToString();
+                if (string.IsNullOrWhiteSpace(name))
+                    return false;
+
+                var childPrefix = string.IsNullOrWhiteSpace(prefix)
+                    ? name
+                    : $"{prefix}.{name}";
+
+                values[childPrefix] = item["value"]?.ToString() ?? string.Empty;
+                didFlatten = true;
+            }
+
+            return didFlatten;
+        }
+
+        private JObject? GetDocumentObject()
+        {
+            if (_documentObject != null)
+                return _documentObject;
+
+            if (string.IsNullOrWhiteSpace(DocumentJson))
+                return null;
+
+            try
+            {
+                _documentObject = JObject.Parse(DocumentJson);
+            }
+            catch
+            {
+                return null;
+            }
+
+            return _documentObject;
+        }
+
+        private static string? EmptyToNull(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private static string BuildLookupKey(string fieldName)
+        {
+            var lastDot = fieldName.LastIndexOf('.');
+            var leaf = lastDot >= 0 ? fieldName[(lastDot + 1)..] : fieldName;
+            var canonical = CanonicalizeFieldName(leaf);
+            return new string(canonical
+                .Where(char.IsLetterOrDigit)
+                .Select(char.ToUpperInvariant)
+                .ToArray());
+        }
 
         // Runtime properties for Print Status logic
         private bool _isPrinted;

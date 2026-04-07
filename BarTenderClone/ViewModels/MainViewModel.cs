@@ -27,6 +27,25 @@ namespace BarTenderClone.ViewModels
         }
 
 
+        private void OnSessionExpired(object? sender, EventArgs e)
+        {
+            if (sender is LabelPreviewViewModel labelVm)
+            {
+                labelVm.SessionExpired -= OnSessionExpired;
+            }
+            // SessionExpired may fire from a background thread (async HTTP callback).
+            // Dispatch to UI thread before touching bound properties or showing dialogs.
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                System.Windows.MessageBox.Show(
+                    "Your session has expired. Please log in again.",
+                    "Session Expired",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                ShowLogin();
+            });
+        }
+
         private void LoginVm_LoginSuccess(object sender, EventArgs e)
         {
             // Unsubscribe
@@ -45,7 +64,9 @@ namespace BarTenderClone.ViewModels
                 // Placeholder:
                 // CurrentView = new TextBlock { Text = "LoggedIn!" }; 
                 // Better: use a proper view model
-                CurrentView = _serviceProvider.GetRequiredService<LabelPreviewViewModel>(); // We'll create this next
+                var labelPreviewVm = _serviceProvider.GetRequiredService<LabelPreviewViewModel>();
+                labelPreviewVm.SessionExpired += OnSessionExpired;
+                CurrentView = labelPreviewVm;
             }
             catch (Exception ex)
             {

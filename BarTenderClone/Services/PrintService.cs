@@ -56,34 +56,76 @@ namespace BarTenderClone.Services
         private string GenerateSequentialRfidData(string baseRfidData, int labelNumber, int totalLabels)
         {
             if (string.IsNullOrWhiteSpace(baseRfidData))
-                return $"{labelNumber:D16}"; // Fallback: use label number as hex
+                return string.Empty; // No base RFID — caller will skip encoding
 
-            // For hexadecimal format (most common with RFID):
-            // Increment the last 4 hex characters to create unique RFID per label
-            if (baseRfidData.All(c => "0123456789ABCDEFabcdef".Contains(c)))
+            // Treat the entire hex string as a big integer and add (labelNumber - 1)
+            if (baseRfidData.All(c => "0123456789ABCDEFabcdef".Contains(c)) && baseRfidData.Length > 0)
             {
-                if (baseRfidData.Length >= 4)
+                int length = baseRfidData.Length;
+                // Perform big-integer addition on the hex string (carry propagates left)
+                int increment = labelNumber - 1; // label 1 keeps original
+                char[] digits = baseRfidData.ToUpperInvariant().ToCharArray();
+                int carry = increment;
+
+                for (int i = length - 1; i >= 0 && carry > 0; i--)
                 {
-                    string prefix = baseRfidData.Length > 4 ? baseRfidData.Substring(0, baseRfidData.Length - 4) : "";
-                    string lastFour = baseRfidData.Substring(Math.Max(0, baseRfidData.Length - 4));
-
-                    if (int.TryParse(lastFour, System.Globalization.NumberStyles.HexNumber, null, out int lastBytes))
-                    {
-                        // First label keeps original value, subsequent labels increment
-                        int newValue = lastBytes + labelNumber - 1;
-                        string newLastFour = newValue.ToString("X").PadLeft(4, '0');
-
-                        // If overflow beyond 4 digits, take last 4
-                        if (newLastFour.Length > 4)
-                            newLastFour = newLastFour.Substring(newLastFour.Length - 4);
-
-                        return $"{prefix}{newLastFour}";
-                    }
+                    int digitVal = (digits[i] >= '0' && digits[i] <= '9')
+                        ? digits[i] - '0'
+                        : digits[i] - 'A' + 10;
+                    int sum = digitVal + carry;
+                    carry = sum / 16;
+                    int rem = sum % 16;
+                    digits[i] = rem < 10 ? (char)('0' + rem) : (char)('A' + rem - 10);
                 }
+                // If carry remains (overflow past the full string), wrap
+                if (carry > 0)
+                    throw new InvalidOperationException($"RFID sequence overflow for base value '{baseRfidData}' and quantity {totalLabels}.");
+
+                return new string(digits);
             }
 
             // Fallback: append label number as suffix
             return $"{baseRfidData}-{labelNumber}";
+        }
+
+        private static bool IsHexString(string value)
+        {
+            return !string.IsNullOrWhiteSpace(value) &&
+                   value.All(c => "0123456789ABCDEFabcdef".Contains(c));
+        }
+
+        private static bool ContainsOnlyAscii(string value)
+        {
+            return value.All(c => c <= sbyte.MaxValue);
+        }
+
+        private void ValidateRfidRequest(ResourceItem? dataSource, RfidConfiguration rfidConfig, int quantity, PrintOptions options)
+        {
+            if (!rfidConfig.EnableRfidEncoding)
+                return;
+
+            if (dataSource == null)
+                throw new InvalidOperationException("RFID encoding requires a selected data source.");
+
+            if (string.IsNullOrWhiteSpace(dataSource.Rfid))
+                throw new InvalidOperationException("RFID data is empty but RFID encoding is enabled.");
+
+            if (quantity > 1 && !options.EnableDetailedTracking)
+            {
+                throw new InvalidOperationException(
+                    "Multi-label RFID printing requires detailed tracking to generate unique RFID data per label.");
+            }
+
+            if (rfidConfig.DataFormat == RfidDataFormat.Hexadecimal && !IsHexString(dataSource.Rfid))
+                throw new InvalidOperationException("RFID data is not valid hexadecimal.");
+
+            if (rfidConfig.DataFormat == RfidDataFormat.ASCII && !ContainsOnlyAscii(dataSource.Rfid))
+                throw new InvalidOperationException("RFID data contains non-ASCII characters.");
+
+            if (quantity > 1)
+            {
+                _ = GenerateSequentialRfidData(dataSource.Rfid, quantity, quantity);
+            }
         }
 
         /// <summary>
@@ -104,7 +146,6 @@ namespace BarTenderClone.Services
                         MeasureUnit = original.ParsedDocument.Product.MeasureUnit,
                         CostRaw = original.ParsedDocument.Product.CostRaw,
                         PriceRaw = original.ParsedDocument.Product.PriceRaw,
-                        CurrencyRaw = original.ParsedDocument.Product.CurrencyRaw,
                         CreationTimeRaw = original.ParsedDocument.Product.CreationTimeRaw,
                         Category = original.ParsedDocument.Product.Category,
                         MainCategory = original.ParsedDocument.Product.MainCategory,
@@ -175,7 +216,7 @@ namespace BarTenderClone.Services
                 _logger.LogDebug($"Printing label {labelNumber}: ZPL generated");
 
                 // Send to printer
-                var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+                var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
 
                 if (!success)
                 {
@@ -281,7 +322,7 @@ namespace BarTenderClone.Services
                 _logger.LogDebug($"Generated ZPL:\n{zpl}");
 
                 // Send to printer with job tracking
-                var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+                var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
 
                 if (!success)
                 {
@@ -365,6 +406,9 @@ namespace BarTenderClone.Services
             try
             {
                 _logger.LogInfo($"Starting RFID print: Printer={printerName}, Quantity={quantity}, DetailedTracking={options.EnableDetailedTracking}, RFID={rfidConfig.EnableRfidEncoding}");
+
+                // Validate RFID request upfront (catches overflow, missing data, format errors)
+                ValidateRfidRequest(dataSource, rfidConfig, quantity, options);
 
                 // Validate printer
                 if (!GetInstalledPrinters().Contains(printerName))
@@ -504,7 +548,7 @@ namespace BarTenderClone.Services
                     );
                     _logger.LogDebug($"Generated RFID ZPL:\n{zpl}");
 
-                    var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+                    var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
 
                     if (!success)
                     {
@@ -697,7 +741,7 @@ namespace BarTenderClone.Services
 
                     string zpl = GenerateLegacyZpl(item, quantity);
 
-                    var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+                    var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
 
                     if (!success)
                     {

@@ -43,6 +43,9 @@ namespace BarTenderClone
                     ));
 
                     services.AddSingleton<ITemplateService, TemplateService>();
+                    services.AddSingleton<IResourceMetadataService, ResourceMetadataService>();
+                    services.AddSingleton<IFieldMetadataService, FieldMetadataService>();
+                    services.AddSingleton<ITenantMetadataService, TenantMetadataService>();
 
                     services.AddTransient<LoginViewModel>();
             services.AddTransient<MainViewModel>();
@@ -51,7 +54,9 @@ namespace BarTenderClone
                     provider.GetRequiredService<IApiService>(),
                     provider.GetRequiredService<IPrintService>(),
                     provider.GetRequiredService<ISessionService>(),
-                    provider.GetRequiredService<ITemplateService>()
+                    provider.GetRequiredService<ITemplateService>(),
+                    provider.GetRequiredService<IResourceMetadataService>(),
+                    provider.GetRequiredService<ILoggingService>()
                 ));
 
             services.AddSingleton<MainWindow>(s => new MainWindow

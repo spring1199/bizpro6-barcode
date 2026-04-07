@@ -21,6 +21,13 @@ namespace BarTenderClone.ViewModels
         private readonly IPrintService _printService;
         private readonly ISessionService _sessionService;
         private readonly ITemplateService _templateService;
+        private readonly IResourceMetadataService _resourceMetadataService;
+        private readonly ILoggingService _logger;
+
+        /// <summary>
+        /// Fired when the session token has expired. Subscribers should navigate back to the login screen.
+        /// </summary>
+        public event EventHandler? SessionExpired;
 
         [ObservableProperty]
         private LabelTemplate _template = new LabelTemplate();
@@ -241,7 +248,7 @@ namespace BarTenderClone.ViewModels
 
         // Media Type selection
         [ObservableProperty]
-        private MediaType _selectedMediaType = MediaType.DirectThermal;
+        private MediaType _selectedMediaType = MediaType.ThermalTransfer;
 
         public ObservableCollection<MediaType> AvailableMediaTypes { get; } = new()
         {
@@ -256,6 +263,12 @@ namespace BarTenderClone.ViewModels
             ElementType.Barcode,
             ElementType.QRCode
         };
+
+        // Dynamic field options discovered from loaded products
+        public ObservableCollection<ResourceFieldOption> AvailableFields { get; } = new();
+
+        // Dynamic product grid columns
+        public ObservableCollection<ProductGridColumnDefinition> ProductGridColumns { get; } = new();
 
         // Computed property to enable/disable Print Selected button
         public bool HasSelectedItems => SelectedProducts.Count > 0;
@@ -279,15 +292,24 @@ namespace BarTenderClone.ViewModels
             OnPropertyChanged(nameof(ZoomPercentage));
         }
 
-        public LabelPreviewViewModel(IApiService apiService, IPrintService printService, ISessionService sessionService, ITemplateService templateService)
+        public LabelPreviewViewModel(
+            IApiService apiService,
+            IPrintService printService,
+            ISessionService sessionService,
+            ITemplateService templateService,
+            IResourceMetadataService resourceMetadataService,
+            ILoggingService logger)
         {
             _apiService = apiService;
             _printService = printService;
             _sessionService = sessionService;
             _templateService = templateService;
+            _resourceMetadataService = resourceMetadataService;
+            _logger = logger;
 
             LoadPrinters();
             UpdateTemplateSize(); // Init defaults
+            RefreshResourceMetadata(Array.Empty<ResourceItem>());
 
             // Subscribe to elements collection changes to track dirty state
             Elements.CollectionChanged += (s, e) => IsDirty = true;
@@ -1182,14 +1204,10 @@ namespace BarTenderClone.ViewModels
             try
             {
                 // Check authentication first
-                if (!_sessionService.IsAuthenticated)
+                if (!_sessionService.IsAuthenticated || _sessionService.IsTokenExpired)
                 {
-                    StatusMessage = "Error: Not authenticated. Please log in first.";
-                    System.Windows.MessageBox.Show(
-                        "You are not logged in. Please restart the application and log in.",
-                        "Authentication Required",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Warning);
+                    StatusMessage = "Error: Session expired. Please log in again.";
+                    SessionExpired?.Invoke(this, EventArgs.Empty);
                     return;
                 }
 
@@ -1256,6 +1274,8 @@ namespace BarTenderClone.ViewModels
 
                 if (AllProducts.Count > 0)
                 {
+                    RefreshResourceMetadata(AllProducts);
+
                     // Populate available units for filter dropdown
                     var units = AllProducts
                         .Select(p => p.Unit)
@@ -1311,9 +1331,18 @@ namespace BarTenderClone.ViewModels
             }
             catch (System.Exception ex)
             {
-                StatusMessage = $"Error: {ex.Message}";
+                var msg = ex.Message;
+                if (msg.Contains("Not authenticated", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("401", StringComparison.Ordinal) ||
+                    msg.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase))
+                {
+                    StatusMessage = "Session expired. Please log in again.";
+                    SessionExpired?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
+                StatusMessage = $"Error: {msg}";
                 System.Windows.MessageBox.Show(
-                    $"Failed to load data:\n\n{ex.Message}",
+                    $"Failed to load data:\n\n{msg}",
                     "Error",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
@@ -1453,7 +1482,7 @@ namespace BarTenderClone.ViewModels
                 // Absolute minimal ZPL - no special modes, just text.
                 string testZpl = "^XA^FO50,50^A0N,50,50^FDTEST OK^FS^XZ";
                 
-                var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, testZpl);
+                var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, testZpl);
                 
                 if (success)
                 {
@@ -1483,7 +1512,7 @@ namespace BarTenderClone.ViewModels
                 // CPCL command to switch device language to ZPL
                 string switchCmd = "! U1 setvar \"device.languages\" \"zpl\"\r\n";
                 
-                var (success, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, switchCmd);
+                var (success, _, __) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, switchCmd);
                 
                 if (success)
                 {
@@ -2038,29 +2067,6 @@ namespace BarTenderClone.ViewModels
             }
         }
 
-        // Available field names for binding
-        public List<string> AvailableFields { get; } = new List<string>
-        {
-            "None",
-            "RFID",
-            "ItemCode",
-            "ProductName",
-            "Price",
-            "Branch",
-            "Status",
-            "Unit",
-            "Date",
-            "AcquisitionDate",
-            "Category",
-            "MainCategory",
-            "SubCategory",
-            "Supplier",
-            "Barcode",
-            "Currency",
-            "BoxNumber",
-            "ResponsibleEmployee"
-        };
-
         public void UpdateElementContentFromFieldPublic(LabelElement element)
         {
             UpdateElementContentFromField(element);
@@ -2118,42 +2124,67 @@ namespace BarTenderClone.ViewModels
 
         private static string? ResolveFieldFromDocumentJson(string fieldName, ResourceItem product)
         {
-            if (string.IsNullOrWhiteSpace(product.DocumentJson))
+            // Delegate to the new unified field resolution via DocumentFieldValues
+            return product.GetFieldValue(fieldName);
+        }
+
+        // ===== RESOURCE METADATA =====
+
+        private void RefreshResourceMetadata(IEnumerable<ResourceItem> products)
+        {
+            var profile = _resourceMetadataService.BuildProfile(products);
+
+            ReplaceCollection(AvailableFields, profile.BindableFields);
+            ReplaceCollection(ProductGridColumns, profile.GridColumns);
+
+            // Ensure current elements' field names are available in AvailableFields
+            foreach (var fieldName in Elements
+                .Select(element => element.FieldName)
+                .Where(fieldName => !string.IsNullOrWhiteSpace(fieldName))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                return null;
+                EnsureFieldAvailable(fieldName);
             }
 
-            try
+            EnsureFieldAvailable(SelectedElement?.FieldName);
+        }
+
+        private static void ReplaceCollection(
+            ObservableCollection<ResourceFieldOption> target,
+            IEnumerable<ResourceFieldOption> values)
+        {
+            target.Clear();
+            foreach (var value in values)
             {
-                var document = JObject.Parse(product.DocumentJson);
-
-                foreach (var section in new[] { "product_rfid", "tms_product_rfid", "product", "tms_product" })
-                {
-                    if (document[section] is not JObject obj)
-                    {
-                        continue;
-                    }
-
-                    var directMatch = obj[fieldName];
-                    if (directMatch != null)
-                    {
-                        return directMatch.ToString();
-                    }
-
-                    foreach (var property in obj.Properties())
-                    {
-                        if (property.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return property.Value.ToString();
-                        }
-                    }
-                }
+                target.Add(value);
             }
-            catch
+        }
+
+        private static void ReplaceCollection(
+            ObservableCollection<ProductGridColumnDefinition> target,
+            IEnumerable<ProductGridColumnDefinition> values)
+        {
+            target.Clear();
+            foreach (var value in values)
             {
+                target.Add(value);
             }
+        }
 
-            return null;
+        private void EnsureFieldAvailable(string? fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName))
+                return;
+
+            if (AvailableFields.Any(existing => string.Equals(existing.Key, fieldName, StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            AvailableFields.Add(new ResourceFieldOption
+            {
+                Key = fieldName,
+                DisplayName = fieldName,
+                Order = 9999
+            });
         }
     }
 }
