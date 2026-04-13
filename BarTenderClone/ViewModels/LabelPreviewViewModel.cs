@@ -799,7 +799,8 @@ namespace BarTenderClone.ViewModels
                 X = margins.left,
                 Y = margins.top,
                 FontSize = defaultFontSize,
-                Width = Template.Width - margins.left - margins.right
+                Width = Template.Width - margins.left - margins.right,
+                Height = defaultFontSize * 2.5
             };
 
             Elements.Add(newElement);
@@ -1692,9 +1693,31 @@ namespace BarTenderClone.ViewModels
         {
             StatusMessage = "Printing...";
 
+            // When no product is selected (manual label mode) but RFID encoding is on,
+            // build a synthetic ResourceItem from the RFID element's Content so that
+            // PrintService doesn't abort with "no data source provided".
+            var effectiveDataSource = SelectedProduct;
+            if (effectiveDataSource == null && EnableRfidEncoding)
+            {
+                var rfidElement = Elements.FirstOrDefault(e =>
+                    e.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true &&
+                    !string.IsNullOrWhiteSpace(e.Content));
+
+                if (rfidElement != null)
+                {
+                    effectiveDataSource = new ResourceItem
+                    {
+                        ParsedDocument = new ResourceDocument
+                        {
+                            ProductRfid = new ProductRfidDto { Rfid = rfidElement.Content }
+                        }
+                    };
+                }
+            }
+
             var rfidConfig = new RfidConfiguration
             {
-                EnableRfidEncoding = EnableRfidEncoding,
+                EnableRfidEncoding = EnableRfidEncoding && effectiveDataSource != null,
                 DataFormat = SelectedRfidFormat,
                 EnableVerification = true,
                 RetryCount = 3
@@ -1720,7 +1743,7 @@ namespace BarTenderClone.ViewModels
 
             var result = await _printService.PrintLabelWithRfidAsync(
                 Elements,
-                SelectedProduct,
+                effectiveDataSource,
                 Template,
                 SelectedPrinter,
                 rfidConfig,

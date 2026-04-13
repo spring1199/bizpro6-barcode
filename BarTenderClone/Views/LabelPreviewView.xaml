@@ -19,9 +19,9 @@
         <!-- Main Content Area -->
         <Grid Grid.Row="0" Margin="20">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="500" MinWidth="400" MaxWidth="700"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
                 <ColumnDefinition Width="Auto"/> <!-- Splitter -->
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*" MinWidth="280"/>
             </Grid.ColumnDefinitions>
             
             <!-- ========================================
@@ -279,20 +279,22 @@
                               Grid.Row="5"
                               ItemsSource="{Binding Products}"
                               SelectedItem="{Binding SelectedProduct}"
-                              AutoGenerateColumns="False" 
+                              AutoGenerateColumns="False"
                               CanUserAddRows="False"
                               IsReadOnly="False"
                               SelectionMode="Single"
-                              BorderThickness="0"
+                              BorderThickness="1"
+                              BorderBrush="#D0D0D0"
                               Margin="0"
-                              GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#F0F0F0"
-                              VerticalGridLinesBrush="Transparent"
+                              GridLinesVisibility="All"
+                              HorizontalGridLinesBrush="#D8D8D8"
+                              VerticalGridLinesBrush="#D8D8D8"
                               HeadersVisibility="Column"
                               RowHeaderWidth="0"
-                              Background="Transparent"
+                              Background="White"
                               Foreground="#201F1E"
-                              FrozenColumnCount="1"
+                              FrozenColumnCount="2"
+                              AlternationCount="10000"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
                         <DataGrid.ContextMenu>
@@ -300,70 +302,78 @@
                         </DataGrid.ContextMenu>
                         
                         <DataGrid.Resources>
-                            <!-- Premium Row Style -->
+                            <!-- Row Style with grid lines visible -->
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background" Value="White"/>
                                 <Setter Property="Foreground" Value="#201F1E"/>
-                                <Setter Property="BorderBrush" Value="Transparent"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Margin" Value="0,2,0,2"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="DataGridRow">
-                                            <Border x:Name="RowBorder"
-                                                    Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    CornerRadius="6"
-                                                    Padding="0">
-                                                <DataGridCellsPresenter/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="RowBorder" Property="Background" Value="#F0F6FC"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="RowBorder" Property="Background" Value="Transparent"/>
-                                                    <Setter TargetName="RowBorder" Property="BorderBrush" Value="Transparent"/>
-                                                    <Setter TargetName="RowBorder" Property="BorderThickness" Value="0"/>
-                                                    <Setter Property="Foreground" Value="#000000"/> 
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter Property="MinHeight" Value="32"/>
                                 <EventSetter Event="MouseLeftButtonDown" Handler="DataGridRow_MouseLeftButtonDown"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#EBF3FB"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#D6E8FA"/>
+                                        <Setter Property="Foreground" Value="#000000"/>
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
 
-                            <!-- Premium Cell Style -->
+                            <!-- Cell Style -->
                             <Style TargetType="DataGridCell">
-                                <Setter Property="Padding" Value="12,10"/>
+                                <Setter Property="Padding" Value="8,6"/>
+                                <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="DataGridCell">
-                                            <Border Padding="{TemplateBinding Padding}" Background="Transparent">
+                                            <Border Padding="{TemplateBinding Padding}"
+                                                    Background="Transparent"
+                                                    BorderBrush="Transparent"
+                                                    BorderThickness="0">
                                                 <ContentPresenter VerticalAlignment="Center"/>
                                             </Border>
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
                                 <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridRow}}"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderBrush" Value="Transparent"/>
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
 
-                            <!-- Premium Column Header Style -->
+                            <!-- Column Header Style -->
                             <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Foreground" Value="#605E5C"/>
+                                <Setter Property="Background" Value="#F5F5F5"/>
+                                <Setter Property="Foreground" Value="#404040"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
-                                <Setter Property="Padding" Value="12,12"/>
-                                <Setter Property="BorderThickness" Value="0,0,0,2"/>
-                                <Setter Property="BorderBrush" Value="#E1E1E1"/>
+                                <Setter Property="FontSize" Value="11"/>
+                                <Setter Property="Padding" Value="8,10"/>
+                                <Setter Property="BorderThickness" Value="0,0,1,2"/>
+                                <Setter Property="BorderBrush" Value="#C8C8C8"/>
                             </Style>
                         </DataGrid.Resources>
 
                         <DataGrid.Columns>
+                            <!-- Row Number Column -->
+                            <DataGridTemplateColumn Header="#" Width="40" MinWidth="40" CanUserResize="False" CanUserSort="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding (ItemsControl.AlternationIndex),
+                                                          RelativeSource={RelativeSource AncestorType=DataGridRow},
+                                                          Converter={StaticResource IncrementConverter}}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#888"
+                                                   FontSize="11"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
                             <!-- Checkbox Column -->
-                            <DataGridTemplateColumn Header="Select" Width="50" MinWidth="50" CanUserResize="False"
+                            <DataGridTemplateColumn Header="" Width="40" MinWidth="40" CanUserResize="False"
                                                     CellStyle="{StaticResource CheckboxCellStyle}">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -376,10 +386,11 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="80" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="RFID" Binding="{Binding Rfid}" Width="180" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="70" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Product Name" Binding="{Binding ProductName}" Width="*" IsReadOnly="True">
+                            <!-- Columns ordered to match web RFID tag menu:
+                                 RFID → Статус → Бүтээгдэхүүн → Нэгж → Салбар → Үнэ → Баркод/Код → бусад -->
+                            <DataGridTextColumn Header="RFID" Binding="{Binding Rfid}" Width="175" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Статус" Binding="{Binding StatusDisplay}" Width="80" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Бүтээгдэхүүн" Binding="{Binding ProductName}" Width="*" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -388,26 +399,28 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" Width="50" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Price" Binding="{Binding Price, StringFormat=N0}" Width="60" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Date" Binding="{Binding DisplayDate, StringFormat=MM-dd}" Width="60" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Acq. Date" Binding="{Binding AcquisitionDateFormatted}" Width="92" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Branch" Binding="{Binding Branch}" Width="120" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Box No" Binding="{Binding BoxNumber}" Width="70" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier}" Width="120" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="110" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Resp. Emp." Binding="{Binding ResponsibleEmployee}" Width="120" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Нэгж" Binding="{Binding Unit}" Width="55" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Салбар" Binding="{Binding Branch}" Width="110" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Нэгж үнэ" Binding="{Binding Price, StringFormat=N0}" Width="70" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Баркод" Binding="{Binding Code}" Width="80" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Огноо" Binding="{Binding DisplayDate, StringFormat=MM-dd}" Width="60" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Хүлээн авсан" Binding="{Binding AcquisitionDateFormatted}" Width="95" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Хайрцаг №" Binding="{Binding BoxNumber}" Width="70" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Нийлүүлэгч" Binding="{Binding Supplier}" Width="115" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Ангилал" Binding="{Binding Category}" Width="105" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Хариуцагч" Binding="{Binding ResponsibleEmployee}" Width="115" IsReadOnly="True"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
             </Border>
             
             <!-- Splitter -->
-            <GridSplitter Grid.Column="1" Width="6" 
-                          Background="#E0E0E0" 
+            <GridSplitter Grid.Column="1" Width="8"
+                          Background="#C8C8C8"
                           HorizontalAlignment="Center" VerticalAlignment="Stretch"
                           Cursor="SizeWE"
-                          Margin="-3,0,-3,0"/>
+                          Margin="-4,0,-4,0"
+                          ShowsPreview="True"/>
             
             <!-- ========================================
                  RIGHT PANEL: LABEL DESIGNER
@@ -486,6 +499,7 @@
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
                                   Background="Transparent">
+                        <AdornerDecorator>
                         <Grid>
                             <!-- Label Card -->
                             <Border x:Name="LabelCard"
@@ -543,7 +557,9 @@
                                     
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Thumb DragDelta="Thumb_DragDelta" MouseDown="Thumb_MouseDown" Tag="{Binding}">
+                                            <Thumb DragDelta="Thumb_DragDelta" MouseDown="Thumb_MouseDown" Tag="{Binding}"
+                                                   Width="{Binding Width}"
+                                                   MinWidth="20" MinHeight="15">
                                                 <Thumb.Template>
                                                     <ControlTemplate>
                                                         <Grid>
@@ -555,6 +571,7 @@
                                                                            Foreground="{StaticResource TextPrimaryBrush}"
                                                                            FontWeight="{Binding IsBold, Converter={StaticResource BoolToFontWeightConverter}}"
                                                                            Width="{Binding Width}"
+                                                                           TextWrapping="Wrap"
                                                                            Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Text}">
                                                                     <TextBlock.Style>
                                                                         <Style TargetType="TextBlock">
@@ -646,6 +663,7 @@
                                 </Grid>
                             </Border>
                         </Grid>
+                        </AdornerDecorator>
                     </ScrollViewer>
                 </Border>
                 

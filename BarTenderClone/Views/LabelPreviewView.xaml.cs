@@ -82,12 +82,25 @@ namespace BarTenderClone.Views
 
         private void AddAdorner(System.Windows.Controls.Primitives.Thumb thumb, BarTenderClone.Models.LabelElement element)
         {
-            // Get adorner layer
+            // Try to get the adorner layer from the thumb first, then walk up if null
             _adornerLayer = AdornerLayer.GetAdornerLayer(thumb);
+
+            if (_adornerLayer == null)
+            {
+                DependencyObject current = thumb;
+                while (current != null)
+                {
+                    current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+                    if (current is UIElement ui)
+                    {
+                        _adornerLayer = AdornerLayer.GetAdornerLayer(ui);
+                        if (_adornerLayer != null) break;
+                    }
+                }
+            }
 
             if (_adornerLayer != null)
             {
-                // Create and add new adorner
                 _currentAdorner = new ResizeAdorner(thumb, element);
                 _adornerLayer.Add(_currentAdorner);
             }
