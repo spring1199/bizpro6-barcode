@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using BarTenderClone.Adorners;
 
 namespace BarTenderClone.Views
@@ -403,6 +404,46 @@ namespace BarTenderClone.Views
                     viewModel.SelectedElement = null;
                 }
             }
+        }
+
+        private void ProductGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            UpdateRowNumber(e.Row);
+        }
+
+        private void ProductGrid_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            Dispatcher.BeginInvoke(
+                new Action(RefreshVisibleRowNumbers),
+                DispatcherPriority.Loaded);
+        }
+
+        private void RefreshVisibleRowNumbers()
+        {
+            if (ProductGrid.Items.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < ProductGrid.Items.Count; i++)
+            {
+                if (ProductGrid.ItemContainerGenerator.ContainerFromIndex(i) is DataGridRow row)
+                {
+                    UpdateRowNumber(row);
+                }
+            }
+        }
+
+        private void UpdateRowNumber(DataGridRow row)
+        {
+            if (DataContext is not BarTenderClone.ViewModels.LabelPreviewViewModel viewModel)
+            {
+                row.Tag = null;
+                return;
+            }
+
+            var displayedRowNumber = viewModel.Pagination.StartIndex + row.GetIndex() + 1;
+            row.Tag = displayedRowNumber.ToString();
         }
 
         /// <summary>

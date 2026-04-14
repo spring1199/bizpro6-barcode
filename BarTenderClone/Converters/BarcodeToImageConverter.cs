@@ -4,80 +4,59 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using BarcodeStandard;
 using BarTenderClone.Helpers;
+using SkiaSharp;
+using BarcodeType = BarcodeStandard.Type;
 
 namespace BarTenderClone.Converters
 {
     /// <summary>
     /// Converts barcode content, width, and height to a barcode image.
-    /// Uses EXACT same calculation as ZplGeneratorService for WYSIWYG.
+    /// Uses the same layout math as ZplGeneratorService so the preview occupies
+    /// the same box the printer will use.
     /// </summary>
     public class BarcodeToImageConverter : IMultiValueConverter
     {
-        // Must match ZplGeneratorService constants
-        private const int MODULES_PER_CHAR = 11;
-        private const int OVERHEAD_MODULES = 35;
-        private const int MIN_MODULE_WIDTH = 2;
-        private const int MAX_MODULE_WIDTH = 10;
-        private const int DEFAULT_DPI = 300;
-
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        public object Convert(object[] values, System.Type targetType, object parameter, CultureInfo culture)
         {
             // values[0] = Content (string)
             // values[1] = Width (double) - user specified element width
             // values[2] = Height (double)
+            // values[3] = PrinterDpi (int)
+            // values[4] = IsCentered (bool)
             if (values == null || values.Length < 3)
-                return null;
+                return DependencyProperty.UnsetValue;
 
-            string content = values[0] as string;
+            string? content = values[0] as string;
             if (string.IsNullOrEmpty(content))
-                return null;
+                return DependencyProperty.UnsetValue;
 
             // Get element dimensions (in screen pixels)
             double elementWidth = 200;
             double elementHeight = 40;
+            int printerDpi = 203;
+            bool isCentered = false;
 
             if (values[1] is double w && w > 0)
                 elementWidth = w;
             if (values[2] is double h && h > 0)
                 elementHeight = h;
+            if (values.Length > 3 && values[3] is int dpi && dpi > 0)
+                printerDpi = dpi;
+            if (values.Length > 4 && values[4] is bool centered)
+                isCentered = centered;
 
             try
             {
-                // Convert element width to dots (same as ZPL generator)
-                int elementWidthDots = LabelSizeHelper.ScreenPixelsToDots(elementWidth, DEFAULT_DPI);
-                int height = (int)Math.Max(elementHeight, 20);
+                int width = (int)Math.Max(Math.Round(elementWidth), 50);
+                int height = (int)Math.Max(
+                    Math.Round(elementHeight),
+                    Math.Round(LabelSizeHelper.MmToScreenPixels(5)));
 
-                // Calculate EXACTLY like ZplGeneratorService.GenerateBarcodeElement
-                int totalModules = (content.Length * MODULES_PER_CHAR) + OVERHEAD_MODULES;
-                int moduleWidth = Math.Max(MIN_MODULE_WIDTH, elementWidthDots / totalModules);
-                moduleWidth = Math.Clamp(moduleWidth, MIN_MODULE_WIDTH, MAX_MODULE_WIDTH);
-                
-                // Actual barcode width in dots (what ZPL produces)
-                int actualBarcodeWidthDots = totalModules * moduleWidth;
-                
-                // Convert back to screen pixels for preview
-                double actualBarcodeWidthPixels = (double)actualBarcodeWidthDots / DEFAULT_DPI * LabelSizeHelper.SCREEN_DPI;
-                int width = (int)Math.Max(actualBarcodeWidthPixels, 50);
-
-                // Generate barcode bars
-                var bars = new System.Collections.Generic.List<(double barWidth, double gap)>();
-                Random rng = new Random(content.GetHashCode());
-                double totalBarsWidth = 0;
-                double targetWidth = width * 0.95;
-
-                while (totalBarsWidth < targetWidth)
-                {
-                    double barWidth = rng.Next(1, 4);
-                    double gap = rng.Next(1, 3);
-                    if (totalBarsWidth + barWidth > targetWidth) break;
-                    bars.Add((barWidth, gap));
-                    totalBarsWidth += barWidth + gap;
-                }
-
-                if (bars.Count > 0)
-                    totalBarsWidth -= bars[bars.Count - 1].gap;
-                if (totalBarsWidth <= 0) totalBarsWidth = 10;
+                var layout = LabelSizeHelper.CalculateCode128Layout(content, elementWidth, printerDpi);
+                double barcodeWidth = Math.Max(1, Math.Min(layout.ActualWidthPixels, elementWidth));
+                var barcodeSource = CreateBarcodeImage(content, barcodeWidth, height);
 
                 // Create visual
                 DrawingVisual drawingVisual = new DrawingVisual();
@@ -85,16 +64,11 @@ namespace BarTenderClone.Converters
                 {
                     dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
 
-                    double startX = (width - totalBarsWidth) / 2;
-                    double currentX = startX;
-                    double barTop = height * 0.1;
-                    double barHeight = height * 0.8;
-
-                    foreach (var bar in bars)
-                    {
-                        dc.DrawRectangle(Brushes.Black, null, new Rect(currentX, barTop, bar.barWidth, barHeight));
-                        currentX += bar.barWidth + bar.gap;
-                    }
+                    double totalBarsWidth = barcodeSource.Width;
+                    double startX = isCentered
+                        ? Math.Max(0, (width - totalBarsWidth) / 2)
+                        : 0;
+                    dc.DrawImage(barcodeSource, new Rect(startX, 0, barcodeSource.Width, barcodeSource.Height));
                 }
 
                 RenderTargetBitmap bmp = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
@@ -104,13 +78,42 @@ namespace BarTenderClone.Converters
             }
             catch (Exception)
             {
-                return null;
+                return DependencyProperty.UnsetValue;
             }
         }
 
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        public object[] ConvertBack(object value, System.Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
+        }
+
+        private static BitmapSource CreateBarcodeImage(string content, double width, int height)
+        {
+            var barcode = new Barcode
+            {
+                IncludeLabel = false,
+                Alignment = AlignmentPositions.Left
+            };
+
+            using SKImage image = barcode.Encode(
+                BarcodeType.Code128,
+                content,
+                SKColors.Black,
+                SKColors.White,
+                (int)Math.Max(Math.Round(width), 1),
+                height);
+
+            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = data.AsStream();
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+            bitmap.Freeze();
+
+            return bitmap;
         }
     }
 }

@@ -214,13 +214,21 @@ namespace BarTenderClone.Services
             string content = ResolveFieldValue(element, dataSource);
             content = SanitizeZplContent(content);
 
+            // When a text element has no explicit height, let it wrap naturally instead of
+            // forcing a print-only 3-line cap that the preview never showed.
+            int elementHeightDots = ConvertPositionToDots(element.Height, dpi);
+            int maxLines = (fontHeight > 0 && elementHeightDots > 0)
+                ? Math.Max(1, elementHeightDots / fontHeight)
+                : 10;
+            maxLines = Math.Clamp(maxLines, 1, 10);
+
             if (element.IsCentered)
             {
-                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},1,0,C,0^FD{content}^FS";
+                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},{maxLines},0,C,0^FD{content}^FS";
             }
             else
             {
-                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FD{content}^FS";
+                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},{maxLines},0,L,0^FD{content}^FS";
             }
         }
 
@@ -237,19 +245,10 @@ namespace BarTenderClone.Services
             string data = ResolveFieldValue(element, dataSource);
             data = SanitizeBarcodeData(data);
 
-            // Dynamic module width calculation based on element.Width
-            // Code 128: Each character ≈ 11 modules, plus start/stop/checksum (35 modules overhead)
-            int totalModules = (data.Length * 11) + 35;
+            var layout = LabelSizeHelper.CalculateCode128Layout(data, element.Width, dpi);
             int elementWidthDots = ConvertPositionToDots(element.Width, dpi);
-            
-            // Calculate optimal module width to fill the available space
-            int moduleWidth = Math.Max(2, elementWidthDots / totalModules);
-            
-            // Clamp to reasonable printing range (2-10 dots)
-            moduleWidth = Math.Clamp(moduleWidth, 2, 10);
-            
-            // Recalculate actual barcode width with the clamped module width
-            int actualBarcodeWidth = totalModules * moduleWidth;
+            int actualBarcodeWidth = layout.ActualWidthDots;
+            int moduleWidth = layout.ModuleWidthDots;
 
             int x;
             if (element.IsCentered)
@@ -266,9 +265,10 @@ namespace BarTenderClone.Services
             }
 
             // Apply unified barcode offset (same for all DPI)
-            if (LabelSizeHelper.BARCODE_X_OFFSET_MM != 0)
+            var barcodeOffsetMm = LabelSizeHelper.BARCODE_X_OFFSET_MM;
+            if (barcodeOffsetMm != 0)
             {
-                int offsetDots = LabelSizeHelper.MmToDots(LabelSizeHelper.BARCODE_X_OFFSET_MM, dpi);
+                int offsetDots = LabelSizeHelper.MmToDots(barcodeOffsetMm, dpi);
                 x = Math.Max(0, x + offsetDots);
             }
 

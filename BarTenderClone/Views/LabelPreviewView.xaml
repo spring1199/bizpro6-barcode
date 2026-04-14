@@ -279,6 +279,8 @@
                               Grid.Row="5"
                               ItemsSource="{Binding Products}"
                               SelectedItem="{Binding SelectedProduct}"
+                              LoadingRow="ProductGrid_LoadingRow"
+                              Sorting="ProductGrid_Sorting"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
                               IsReadOnly="False"
@@ -361,9 +363,8 @@
                             <DataGridTemplateColumn Header="#" Width="40" MinWidth="40" CanUserResize="False" CanUserSort="False">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding (ItemsControl.AlternationIndex),
-                                                          RelativeSource={RelativeSource AncestorType=DataGridRow},
-                                                          Converter={StaticResource IncrementConverter}}"
+                                        <TextBlock Text="{Binding Tag,
+                                                          RelativeSource={RelativeSource AncestorType=DataGridRow}}"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
                                                    Foreground="#888"
@@ -571,6 +572,7 @@
                                                                            Foreground="{StaticResource TextPrimaryBrush}"
                                                                            FontWeight="{Binding IsBold, Converter={StaticResource BoolToFontWeightConverter}}"
                                                                            Width="{Binding Width}"
+                                                                           Height="{Binding Height, Converter={StaticResource ZeroToAutoLengthConverter}}"
                                                                            TextWrapping="Wrap"
                                                                            Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Text}">
                                                                     <TextBlock.Style>
@@ -598,6 +600,8 @@
                                                                                 <Binding Path="Content"/>
                                                                                 <Binding Path="Width"/>
                                                                                 <Binding Path="Height"/>
+                                                                                <Binding Path="DataContext.PrinterDpi" RelativeSource="{RelativeSource AncestorType=UserControl}"/>
+                                                                                <Binding Path="IsCentered"/>
                                                                             </MultiBinding>
                                                                         </Image.Source>
                                                                     </Image>

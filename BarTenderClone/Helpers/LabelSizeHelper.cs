@@ -8,6 +8,11 @@ namespace BarTenderClone.Helpers
     /// </summary>
     public static class LabelSizeHelper
     {
+        public const int CODE128_MODULES_PER_CHAR = 11;
+        public const int CODE128_OVERHEAD_MODULES = 35;
+        public const int MIN_BARCODE_MODULE_WIDTH = 2;
+        public const int MAX_BARCODE_MODULE_WIDTH = 10;
+
         // Display constants
         public const double SCREEN_DPI = 96.0;
 
@@ -224,16 +229,43 @@ namespace BarTenderClone.Helpers
         public static double CalculateCode128Width(string data, int printerDpi)
         {
             if (string.IsNullOrEmpty(data)) data = "12345678";
-            
+
             int moduleWidthDots = CalculateBarcodeModuleWidth(printerDpi);
-            // Each char is 11 modules + 35 modules for start/stop/quiet
-            int totalDots = (data.Length * 11 + 35) * moduleWidthDots;
-            
-            // Convert dots to inches, then inches to screen pixels
+            int totalDots = (data.Length * CODE128_MODULES_PER_CHAR + CODE128_OVERHEAD_MODULES) * moduleWidthDots;
+
             double inches = (double)totalDots / printerDpi;
             return Math.Round(InchesToScreenPixels(inches));
         }
+
+        /// <summary>
+        /// Calculates the barcode layout used by both the preview renderer and the ZPL generator.
+        /// Keeping this in one place reduces preview-vs-print drift.
+        /// </summary>
+        public static Code128LayoutMetrics CalculateCode128Layout(string? data, double elementWidthPixels, int printerDpi)
+        {
+            var safeData = string.IsNullOrWhiteSpace(data) ? "12345678" : data;
+            var totalModules = (safeData.Length * CODE128_MODULES_PER_CHAR) + CODE128_OVERHEAD_MODULES;
+            var elementWidthDots = ScreenPixelsToDots(elementWidthPixels, printerDpi);
+
+            var moduleWidthDots = Math.Max(MIN_BARCODE_MODULE_WIDTH, elementWidthDots / totalModules);
+            moduleWidthDots = Math.Clamp(moduleWidthDots, MIN_BARCODE_MODULE_WIDTH, MAX_BARCODE_MODULE_WIDTH);
+
+            var actualWidthDots = totalModules * moduleWidthDots;
+            var actualWidthPixels = InchesToScreenPixels((double)actualWidthDots / printerDpi);
+
+            return new Code128LayoutMetrics(
+                totalModules,
+                moduleWidthDots,
+                actualWidthDots,
+                actualWidthPixels);
+        }
     }
+
+    public readonly record struct Code128LayoutMetrics(
+        int TotalModules,
+        int ModuleWidthDots,
+        int ActualWidthDots,
+        double ActualWidthPixels);
 
     /// <summary>
     /// Font size categories for responsive layout

@@ -23,6 +23,7 @@
             <converters:BoolToExpandIconConverter x:Key="BoolToExpandIconConverter"/>
             <converters:FontScaleConverter x:Key="FontScaleConverter"/>
             <converters:PixelToMmConverter x:Key="PixelToMmConverter"/>
+            <converters:ZeroToAutoLengthConverter x:Key="ZeroToAutoLengthConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
