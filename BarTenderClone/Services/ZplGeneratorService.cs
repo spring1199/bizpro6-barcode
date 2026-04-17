@@ -184,11 +184,18 @@ namespace BarTenderClone.Services
             // RFID Encoding (Standard Practice)
             if (rfidConfig != null && rfidConfig.EnableRfidEncoding)
             {
-                var rfidElement = elements.FirstOrDefault(e => e.Type == ElementType.Barcode && 
+                var rfidElement = elements.FirstOrDefault(e => e.Type == ElementType.Barcode &&
                                                            e.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true);
                 if (rfidElement != null)
                 {
+                    // Normal path: template has a barcode element with FieldName="RFID"
                     zpl.Append(GenerateRfidEncoding(rfidElement, dataSource, rfidConfig));
+                }
+                else if (dataSource != null && !string.IsNullOrWhiteSpace(dataSource.Rfid))
+                {
+                    // Fallback: "New" blank template has no RFID element, encode directly from data source
+                    // ^RFW has no X/Y position so it works regardless of visual layout
+                    zpl.Append(GenerateRfidEncodingFromData(dataSource.Rfid, rfidConfig));
                 }
             }
 
@@ -212,6 +219,9 @@ namespace BarTenderClone.Services
             int fontWidth = LabelSizeHelper.FontSizeToZplWidth(element.FontSize, dpi);
 
             string content = ResolveFieldValue(element, dataSource);
+            // Strip leading zeros for RFID display (^RFW encoding is unaffected)
+            if (element.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true)
+                content = StripLeadingZerosForDisplay(content);
             content = SanitizeZplContent(content);
 
             // When a text element has no explicit height, let it wrap naturally instead of
@@ -243,6 +253,9 @@ namespace BarTenderClone.Services
             double ratio = 2.5; // Bar width to height ratio for Code 128
 
             string data = ResolveFieldValue(element, dataSource);
+            // Strip leading zeros for RFID visual barcode display
+            if (element.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true)
+                data = StripLeadingZerosForDisplay(data);
             data = SanitizeBarcodeData(data);
 
             var layout = LabelSizeHelper.CalculateCode128Layout(data, element.Width, dpi);
@@ -395,6 +408,15 @@ namespace BarTenderClone.Services
         private string GenerateRfidEncoding(LabelElement element, ResourceItem? dataSource, RfidConfiguration config)
         {
             string rfidData = ResolveFieldValue(element, dataSource);
+            return GenerateRfidEncodingFromData(rfidData, config);
+        }
+
+        /// <summary>
+        /// Core RFID encoding logic — does not require a visual LabelElement.
+        /// Used both by element-based encoding and the fallback path for blank templates.
+        /// </summary>
+        private string GenerateRfidEncodingFromData(string rfidData, RfidConfiguration config)
+        {
             if (string.IsNullOrWhiteSpace(rfidData)) rfidData = "0000000000000000";
 
             var formatChar = config.DataFormat switch
@@ -412,13 +434,8 @@ namespace BarTenderClone.Services
             }
 
             int byteCount = rfidData.Length / 2;
-            var zpl = new StringBuilder();
             // Explicit format: ^RFW,[format],[block],[bytes],[master]
-            zpl.Append($"^RFW,{formatChar},{config.StartingBlock},{byteCount},1^FD{rfidData}^FS\r\n");
-
-            // REMOVED: ^HV1 (Host Verification) as it may hang the spooler if not read
-            
-            return zpl.ToString();
+            return $"^RFW,{formatChar},{config.StartingBlock},{byteCount},1^FD{rfidData}^FS\r\n";
         }
 
         private string SanitizeHexData(string data)
@@ -433,6 +450,18 @@ namespace BarTenderClone.Services
         }
 
         /// <summary>
+        /// Strips leading zeros from an RFID string for human-readable display on printed labels.
+        /// Does NOT affect RFID encoding — only used for text/barcode visual elements.
+        /// Follows chipmo2 pattern: fixedRfid = rfid.replace(/^0+/, '')
+        /// </summary>
+        internal static string StripLeadingZerosForDisplay(string rfid)
+        {
+            if (string.IsNullOrEmpty(rfid)) return "0";
+            var trimmed = rfid.TrimStart('0');
+            return string.IsNullOrEmpty(trimmed) ? "0" : trimmed;
+        }
+
+        /// <summary>
         /// Generates ZPL commands for a QR Code element.
         /// Uses ^BQ command for QR code generation on Zebra printers.
         /// </summary>
@@ -442,6 +471,9 @@ namespace BarTenderClone.Services
             int y = ConvertPositionToDots(element.Y, dpi);
             
             string data = ResolveFieldValue(element, dataSource);
+            // Strip leading zeros for RFID display (consistent with text/barcode elements)
+            if (element.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true)
+                data = StripLeadingZerosForDisplay(data);
             data = SanitizeQrCodeData(data);
 
             // Calculate magnification based on element height

@@ -1,7 +1,7 @@
 ; BizPro6 Barcode Inno Setup Script
 
 #define MyAppName "BizPro6 Barcode"
-#define MyAppVersion "3.0.0"
+#define MyAppVersion "3.1.0"
 #define MyAppPublisher "ChipmoBarcode"
 #define MyAppExeName "BizPro6Barcode.exe"
 

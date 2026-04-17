@@ -775,7 +775,7 @@ namespace BarTenderClone.ViewModels
             Elements.Add(new LabelElement
             {
                 Type = ElementType.Barcode,
-                Content = product.Rfid ?? "12345678",
+                Content = ZplGeneratorService.StripLeadingZerosForDisplay(product.Rfid ?? string.Empty) is { Length: > 0 } s ? s : "12345678",
                 FieldName = "RFID",
                 X = leftMargin,  // Start from left margin
                 Y = currentY,
@@ -2122,7 +2122,7 @@ namespace BarTenderClone.ViewModels
 
             var resolved = normalizedField switch
             {
-                "RFID" => product.Rfid,
+                "RFID" => ZplGeneratorService.StripLeadingZerosForDisplay(product.Rfid ?? string.Empty),
                 "ITEMCODE" => product.Code,
                 "PRODUCTNAME" => product.ProductName,
                 "PRICE" => $"MNT {product.Price:N0}",

@@ -560,6 +560,39 @@ namespace BarTenderClone.Models
             }
         }
 
+        // RFID activation status (from backend: 0=Идэвхгүй, 1=Идэвхтэй, ...)
+        [JsonIgnore]
+        public int RfidStatusCode =>
+            int.TryParse(Status, out var v) ? v : -1;
+
+        [JsonIgnore]
+        public string RfidStatusText => RfidStatusCode switch
+        {
+            0  => "Идэвхгүй",
+            1  => "Идэвхтэй",
+            2  => "Борлуулсан",
+            3  => "Бусад",
+            4  => "Гэмтэлтэй",
+            5  => "Хулгайд алдсан",
+            6  => "Актласан",
+            7  => "Бэлэглэсэн",
+            8  => "Шилжүүлсэн",
+            9  => "Буцаасан",
+            10 => "Түгээлтэнд гарсан",
+            _  => "—"
+        };
+
+        [JsonIgnore]
+        public Brush RfidStatusBrush => RfidStatusCode switch
+        {
+            1            => Brushes.MediumSeaGreen,  // Идэвхтэй — ногоон
+            2 or 3 or 7  => Brushes.CornflowerBlue, // Борлуулсан/Бусад/Бэлэглэсэн — цэнхэр
+            4 or 5 or 9  => Brushes.IndianRed,      // Гэмтэлтэй/Хулгайд/Буцаасан — улаан
+            6 or 8 or 10 => Brushes.DarkOrange,     // Актласан/Шилжүүлсэн/Түгээлт — шар
+            0            => Brushes.DarkGray,       // Идэвхгүй — саарал
+            _            => Brushes.Gray            // Тодорхойгүй
+        };
+
         private void ApplyTopLevelData(ProductDto? product = null, ProductRfidDto? productRfid = null)
         {
             ParsedDocument ??= new ResourceDocument();

@@ -390,6 +390,22 @@
                             <!-- Columns ordered to match web RFID tag menu:
                                  RFID → Статус → Бүтээгдэхүүн → Нэгж → Салбар → Үнэ → Баркод/Код → бусад -->
                             <DataGridTextColumn Header="RFID" Binding="{Binding Rfid}" Width="175" IsReadOnly="True"/>
+                            <!-- RFID активацийн статус — chipmo2-тай ижил 0-10 статус кодууд -->
+                            <DataGridTemplateColumn Header="RFID Статус" Width="130" IsReadOnly="True" SortMemberPath="RfidStatusCode">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+                                            <Ellipse Width="8" Height="8"
+                                                     Fill="{Binding RfidStatusBrush}"
+                                                     VerticalAlignment="Center"
+                                                     Margin="0,0,5,0"/>
+                                            <TextBlock Text="{Binding RfidStatusText}"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="11"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Статус" Binding="{Binding StatusDisplay}" Width="80" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Бүтээгдэхүүн" Binding="{Binding ProductName}" Width="*" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
