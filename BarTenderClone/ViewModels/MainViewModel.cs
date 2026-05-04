@@ -9,7 +9,7 @@ namespace BarTenderClone.ViewModels
         private readonly IServiceProvider _serviceProvider;
 
         [ObservableProperty]
-        private object? _currentView;
+        private object _currentView;
 
         public MainViewModel(IServiceProvider serviceProvider)
         {
@@ -26,13 +26,15 @@ namespace BarTenderClone.ViewModels
             CurrentView = loginVm;
         }
 
+
         private void OnSessionExpired(object? sender, EventArgs e)
         {
             if (sender is LabelPreviewViewModel labelVm)
             {
                 labelVm.SessionExpired -= OnSessionExpired;
             }
-
+            // SessionExpired may fire from a background thread (async HTTP callback).
+            // Dispatch to UI thread before touching bound properties or showing dialogs.
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 System.Windows.MessageBox.Show(
@@ -44,7 +46,7 @@ namespace BarTenderClone.ViewModels
             });
         }
 
-        private void LoginVm_LoginSuccess(object? sender, EventArgs e)
+        private void LoginVm_LoginSuccess(object sender, EventArgs e)
         {
             // Unsubscribe
             if (sender is LoginViewModel loginVm)

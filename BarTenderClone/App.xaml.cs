@@ -44,20 +44,22 @@ namespace BarTenderClone
 
                     services.AddSingleton<ITemplateService, TemplateService>();
                     services.AddSingleton<IResourceMetadataService, ResourceMetadataService>();
+                    services.AddSingleton<IFieldMetadataService, FieldMetadataService>();
+                    services.AddSingleton<ITenantMetadataService, TenantMetadataService>();
 
                     services.AddTransient<LoginViewModel>();
-                    services.AddTransient<MainViewModel>();
-                    services.AddTransient<LabelPreviewViewModel>(provider =>
-                        new LabelPreviewViewModel(
-                            provider.GetRequiredService<IApiService>(),
-                            provider.GetRequiredService<IPrintService>(),
-                            provider.GetRequiredService<ISessionService>(),
-                            provider.GetRequiredService<ITemplateService>(),
-                            provider.GetRequiredService<IResourceMetadataService>(),
-                            provider.GetRequiredService<ILoggingService>()
-                        ));
+            services.AddTransient<MainViewModel>();
+            services.AddTransient<LabelPreviewViewModel>(provider =>
+                new LabelPreviewViewModel(
+                    provider.GetRequiredService<IApiService>(),
+                    provider.GetRequiredService<IPrintService>(),
+                    provider.GetRequiredService<ISessionService>(),
+                    provider.GetRequiredService<ITemplateService>(),
+                    provider.GetRequiredService<IResourceMetadataService>(),
+                    provider.GetRequiredService<ILoggingService>()
+                ));
 
-                    services.AddSingleton<MainWindow>(s => new MainWindow
+            services.AddSingleton<MainWindow>(s => new MainWindow
                     {
                         DataContext = s.GetRequiredService<MainViewModel>()
                     });
@@ -68,6 +70,9 @@ namespace BarTenderClone
         protected override async void OnStartup(StartupEventArgs e)
         {
             await AppHost!.StartAsync();
+
+            // Wire up global exception handler to prevent crashes
+            this.DispatcherUnhandledException += OnDispatcherUnhandledException;
 
             var startupForm = AppHost.Services.GetRequiredService<MainWindow>();
             startupForm.Show();
