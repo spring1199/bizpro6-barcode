@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace BarTenderClone.Helpers
 {
@@ -233,6 +233,7 @@ namespace BarTenderClone.Helpers
             int moduleWidthDots = CalculateBarcodeModuleWidth(printerDpi);
             int totalDots = (data.Length * CODE128_MODULES_PER_CHAR + CODE128_OVERHEAD_MODULES) * moduleWidthDots;
 
+            // Convert dots to inches, then inches to screen pixels
             double inches = (double)totalDots / printerDpi;
             return Math.Round(InchesToScreenPixels(inches));
         }

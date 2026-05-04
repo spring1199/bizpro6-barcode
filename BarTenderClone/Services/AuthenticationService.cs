@@ -46,6 +46,7 @@ namespace BarTenderClone.Services
             _sessionService.AccessToken = null;
             _sessionService.TenantId = null;
             _sessionService.ApiBaseUrl = null;
+            _sessionService.TokenExpiresAt = null;
 
             if (await TryLoginWithAuthServerAsync(tenancyName, username, password))
                 return true;
@@ -158,6 +159,7 @@ namespace BarTenderClone.Services
 
                 _sessionService.AccessToken = accessToken;
                 _sessionService.TenantId = ExtractTenantIdFromToken(accessToken);
+                _sessionService.TokenExpiresAt = ExtractExpirationFromToken(accessToken);
                 _sessionService.ApiBaseUrl = _preferredApiBaseUrl;
                 return true;
             }
@@ -199,6 +201,7 @@ namespace BarTenderClone.Services
                     {
                         _sessionService.AccessToken = wrapper.Result.AccessToken;
                         _sessionService.TenantId = ExtractTenantIdFromToken(wrapper.Result.AccessToken);
+                        _sessionService.TokenExpiresAt = ExtractExpirationFromToken(wrapper.Result.AccessToken);
                         _sessionService.ApiBaseUrl = baseUrl;
                         return true;
                     }
@@ -208,6 +211,7 @@ namespace BarTenderClone.Services
                     {
                         _sessionService.AccessToken = directResult.AccessToken;
                         _sessionService.TenantId = ExtractTenantIdFromToken(directResult.AccessToken);
+                        _sessionService.TokenExpiresAt = ExtractExpirationFromToken(directResult.AccessToken);
                         _sessionService.ApiBaseUrl = baseUrl;
                         return true;
                     }
@@ -371,11 +375,37 @@ namespace BarTenderClone.Services
             return null;
         }
 
+        private static DateTime? ExtractExpirationFromToken(string? token)
+        {
+            if (string.IsNullOrEmpty(token)) return null;
+            try
+            {
+                var parts = token.Split('.');
+                if (parts.Length < 2) return null;
+                var payload = parts[1];
+                payload = payload.Replace('-', '+').Replace('_', '/');
+                switch (payload.Length % 4)
+                {
+                    case 2: payload += "=="; break;
+                    case 3: payload += "="; break;
+                }
+
+                var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+                var obj = JObject.Parse(json);
+                var exp = obj["exp"];
+                if (exp != null && long.TryParse(exp.ToString(), out var unixSeconds))
+                    return DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
+            }
+            catch { }
+
+            return null;
+        }
+
         private class AbpResponseWrapper<T>
         {
-            public T Result { get; set; }
+            public T Result { get; set; } = default!;
             public bool Success { get; set; }
-            public object Error { get; set; }
+            public object? Error { get; set; }
             public bool UnAuthorizedRequest { get; set; }
         }
     }

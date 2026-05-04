@@ -1,11 +1,9 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
 using BarTenderClone.Adorners;
 
 namespace BarTenderClone.Views
@@ -83,25 +81,12 @@ namespace BarTenderClone.Views
 
         private void AddAdorner(System.Windows.Controls.Primitives.Thumb thumb, BarTenderClone.Models.LabelElement element)
         {
-            // Try to get the adorner layer from the thumb first, then walk up if null
+            // Get adorner layer
             _adornerLayer = AdornerLayer.GetAdornerLayer(thumb);
-
-            if (_adornerLayer == null)
-            {
-                DependencyObject current = thumb;
-                while (current != null)
-                {
-                    current = System.Windows.Media.VisualTreeHelper.GetParent(current);
-                    if (current is UIElement ui)
-                    {
-                        _adornerLayer = AdornerLayer.GetAdornerLayer(ui);
-                        if (_adornerLayer != null) break;
-                    }
-                }
-            }
 
             if (_adornerLayer != null)
             {
+                // Create and add new adorner
                 _currentAdorner = new ResizeAdorner(thumb, element);
                 _adornerLayer.Add(_currentAdorner);
             }
@@ -406,46 +391,6 @@ namespace BarTenderClone.Views
             }
         }
 
-        private void ProductGrid_LoadingRow(object sender, DataGridRowEventArgs e)
-        {
-            UpdateRowNumber(e.Row);
-        }
-
-        private void ProductGrid_Sorting(object sender, DataGridSortingEventArgs e)
-        {
-            Dispatcher.BeginInvoke(
-                new Action(RefreshVisibleRowNumbers),
-                DispatcherPriority.Loaded);
-        }
-
-        private void RefreshVisibleRowNumbers()
-        {
-            if (ProductGrid.Items.Count == 0)
-            {
-                return;
-            }
-
-            for (int i = 0; i < ProductGrid.Items.Count; i++)
-            {
-                if (ProductGrid.ItemContainerGenerator.ContainerFromIndex(i) is DataGridRow row)
-                {
-                    UpdateRowNumber(row);
-                }
-            }
-        }
-
-        private void UpdateRowNumber(DataGridRow row)
-        {
-            if (DataContext is not BarTenderClone.ViewModels.LabelPreviewViewModel viewModel)
-            {
-                row.Tag = null;
-                return;
-            }
-
-            var displayedRowNumber = viewModel.Pagination.StartIndex + row.GetIndex() + 1;
-            row.Tag = displayedRowNumber.ToString();
-        }
-
         /// <summary>
         /// Clears label element selection when clicking on the product data grid area
         /// </summary>
@@ -466,94 +411,6 @@ namespace BarTenderClone.Views
                     viewModel.SelectedElement = null;
                 }
             }
-        }
-
-        private void FieldBindingComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (sender is not ComboBox comboBox)
-                return;
-
-            // SelectedValue is the Key string (via SelectedValuePath="Key")
-            var fieldName = comboBox.SelectedValue as string;
-            if (string.IsNullOrEmpty(fieldName))
-                return;
-
-            if (DataContext is not BarTenderClone.ViewModels.LabelPreviewViewModel viewModel || viewModel.SelectedElement == null)
-                return;
-
-            // FieldName already updated by TwoWay SelectedValue binding; trigger content refresh
-            viewModel.UpdateElementContentFromFieldPublic(viewModel.SelectedElement);
-        }
-
-        private void ColumnToggleMenu_Opened(object sender, RoutedEventArgs e)
-        {
-            if (sender is not ContextMenu menu)
-            {
-                return;
-            }
-
-            menu.Items.Clear();
-
-            var header = new MenuItem
-            {
-                Header = "Column settings",
-                IsEnabled = false,
-                FontWeight = FontWeights.Bold
-            };
-
-            menu.Items.Add(header);
-            menu.Items.Add(new Separator());
-
-            foreach (var column in ProductGrid.Columns)
-            {
-                var headerText = column.Header?.ToString() ?? "Unknown";
-                if (headerText == "Select")
-                {
-                    continue;
-                }
-
-                var menuItem = new MenuItem
-                {
-                    Header = headerText,
-                    IsCheckable = true,
-                    IsChecked = column.Visibility == Visibility.Visible,
-                    Tag = column
-                };
-
-                menuItem.Click += (_, _) =>
-                {
-                    if (menuItem.Tag is DataGridColumn taggedColumn)
-                    {
-                        taggedColumn.Visibility = menuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
-                    }
-                };
-
-                menu.Items.Add(menuItem);
-            }
-
-            menu.Items.Add(new Separator());
-
-            var showAll = new MenuItem { Header = "Show all" };
-            showAll.Click += (_, _) =>
-            {
-                foreach (var column in ProductGrid.Columns)
-                {
-                    column.Visibility = Visibility.Visible;
-                }
-            };
-
-            menu.Items.Add(showAll);
-
-            var clearAll = new MenuItem { Header = "Clear all" };
-            clearAll.Click += (_, _) =>
-            {
-                foreach (var column in ProductGrid.Columns)
-                {
-                    if (column.Header?.ToString() != "Select")
-                        column.Visibility = Visibility.Collapsed;
-                }
-            };
-            menu.Items.Add(clearAll);
         }
     }
 }

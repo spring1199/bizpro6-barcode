@@ -30,7 +30,7 @@ namespace BarTenderClone.Models
         private PaperSize _selectedPaperSize = PaperSizes.Label54x34;
 
         [ObservableProperty]
-        private MediaType _mediaType = MediaType.ThermalTransfer; // Default to Thermal Transfer
+        private MediaType _mediaType = MediaType.DirectThermal; // Default to Direct Thermal
 
         /// <summary>
         /// Generates ZPL initialization commands based on current configuration

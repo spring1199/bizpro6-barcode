@@ -1,4 +1,5 @@
 using BarTenderClone.Models;
+using Microsoft.Win32;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -9,27 +10,17 @@ using System.Threading.Tasks;
 namespace BarTenderClone.Services
 {
     /// <summary>
-    /// Implementation of template persistence service with tenant-aware folder isolation
+    /// Implementation of template persistence service
     /// </summary>
     public class TemplateService : ITemplateService
     {
         private const string FILE_EXTENSION = ".btl";
-        private static readonly string ROOT_TEMPLATES_FOLDER =
-            System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "BarTenderClone", "Templates");
-        private const string DEFAULT_TENANT_FOLDER = "_default";
-        private readonly ISessionService _sessionService;
-
-        public TemplateService(ISessionService sessionService)
-        {
-            _sessionService = sessionService;
-        }
+        private const string TEMPLATES_FOLDER = "BarTenderTemplates";
 
         public string GetTemplatesDirectory()
         {
-            var tenantFolder = GetTenantFolderName();
-            var templatesPath = Path.Combine(ROOT_TEMPLATES_FOLDER, tenantFolder);
+            var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var templatesPath = Path.Combine(documentsPath, TEMPLATES_FOLDER);
 
             if (!Directory.Exists(templatesPath))
             {
@@ -72,7 +63,7 @@ namespace BarTenderClone.Services
 
                 var dto = new LabelTemplateDto
                 {
-                    Name = name,
+                    Name = name, // Use the provided name
                     Width = template.Width,
                     Height = template.Height,
                     WidthInches = widthInches,
@@ -87,7 +78,8 @@ namespace BarTenderClone.Services
                         FieldName = e.FieldName,
                         Type = e.Type,
                         FontSize = e.FontSize,
-                        IsBold = e.IsBold
+                        IsBold = e.IsBold,
+                        IsCentered = e.IsCentered
                     }).ToList()
                 };
 
@@ -128,15 +120,16 @@ namespace BarTenderClone.Services
 
                 var elements = dto.Elements.Select(e => new LabelElement
                 {
-                    X = e.X,
-                    Y = e.Y,
-                    Width = e.Width,
-                    Height = e.Height,
+                    X = Math.Max(0, e.X),
+                    Y = Math.Max(0, e.Y),
+                    Width = Math.Max(0, e.Width),
+                    Height = Math.Max(0, e.Height),
                     Content = e.Content,
                     FieldName = e.FieldName,
                     Type = e.Type,
                     FontSize = e.FontSize,
                     IsBold = e.IsBold,
+                    IsCentered = e.IsCentered,
                     IsSelected = false
                 }).ToList();
 
@@ -146,28 +139,6 @@ namespace BarTenderClone.Services
             {
                 throw new InvalidOperationException($"Failed to load template: {ex.Message}", ex);
             }
-        }
-
-        private string GetTenantFolderName()
-        {
-            var tenancyName = _sessionService.TenancyName;
-            if (string.IsNullOrWhiteSpace(tenancyName))
-                return DEFAULT_TENANT_FOLDER;
-
-            var invalidChars = Path.GetInvalidFileNameChars();
-            var sanitized = new string(tenancyName
-                .Trim()
-                .Select(ch => invalidChars.Contains(ch) ? '_' : ch)
-                .ToArray());
-
-            // Block path traversal: replace ".." sequences that could escape the templates root
-            sanitized = sanitized.Replace("..", "__", StringComparison.Ordinal);
-
-            // Cap length to avoid MAX_PATH issues on Windows (leave headroom for root + filename)
-            if (sanitized.Length > 64)
-                sanitized = sanitized[..64];
-
-            return string.IsNullOrWhiteSpace(sanitized) ? DEFAULT_TENANT_FOLDER : sanitized;
         }
     }
 }

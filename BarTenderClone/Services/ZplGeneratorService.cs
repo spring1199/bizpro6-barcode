@@ -1,6 +1,5 @@
-using BarTenderClone.Models;
+﻿using BarTenderClone.Models;
 using BarTenderClone.Helpers;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -113,7 +112,7 @@ namespace BarTenderClone.Services
             if (rfidConfig != null && rfidConfig.EnableRfidEncoding)
             {
                 // ^RS: [antenna],[read_pwr],[write_pwr],[retries],[error_action]
-                // Setting retries to 1 to prevent paper waste. 
+                // Setting retries to 1 to prevent paper waste.
                 // Error Action 'N' (None/Skip) stops the printer from VOID-ing labels.
                 zpl.AppendLine($"^RS1,25,27,1,N");
             }
@@ -125,7 +124,7 @@ namespace BarTenderClone.Services
             string mediaTypeCmd = config.MediaType == MediaType.ThermalTransfer ? "^MTT" : "^MTD";
             zpl.AppendLine(mediaTypeCmd);
             zpl.AppendLine("^PON"); // Print Orientation: Normal
-            
+
             // Note: Darkness (^MD) and Speed (^PR) are removed to let printer defaults take over.
 
             // Set label dimensions dynamically based on DPI
@@ -188,14 +187,7 @@ namespace BarTenderClone.Services
                                                            e.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true);
                 if (rfidElement != null)
                 {
-                    // Normal path: template has a barcode element with FieldName="RFID"
                     zpl.Append(GenerateRfidEncoding(rfidElement, dataSource, rfidConfig));
-                }
-                else if (dataSource != null && !string.IsNullOrWhiteSpace(dataSource.Rfid))
-                {
-                    // Fallback: "New" blank template has no RFID element, encode directly from data source
-                    // ^RFW has no X/Y position so it works regardless of visual layout
-                    zpl.Append(GenerateRfidEncodingFromData(dataSource.Rfid, rfidConfig));
                 }
             }
 
@@ -212,63 +204,61 @@ namespace BarTenderClone.Services
         {
             int x = ConvertPositionToDots(element.X, dpi);
             int y = ConvertPositionToDots(element.Y, dpi);
-            int width = ConvertPositionToDots(element.Width, dpi);
+            int width = Math.Max(ConvertPositionToDots(element.Width, dpi), LabelSizeHelper.MmToDots(1, dpi));
 
-            // Font height and width for proportional (non-bold) text
+            // Zebra resident fonts do not have a true bold flag. A wider font box is the
+            // closest deterministic approximation to the bold preview.
             int fontHeight = LabelSizeHelper.FontSizeToZplHeight(element.FontSize, dpi);
-            int fontWidth = LabelSizeHelper.FontSizeToZplWidth(element.FontSize, dpi);
+            int fontWidth = element.IsBold
+                ? Math.Max(fontHeight, LabelSizeHelper.FontSizeToZplWidth(element.FontSize, dpi))
+                : LabelSizeHelper.FontSizeToZplWidth(element.FontSize, dpi);
 
             string content = ResolveFieldValue(element, dataSource);
-            // Strip leading zeros for RFID display (^RFW encoding is unaffected)
-            if (element.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true)
-                content = StripLeadingZerosForDisplay(content);
             content = SanitizeZplContent(content);
 
-            // When a text element has no explicit height, let it wrap naturally instead of
-            // forcing a print-only 3-line cap that the preview never showed.
             int elementHeightDots = ConvertPositionToDots(element.Height, dpi);
-            int maxLines = (fontHeight > 0 && elementHeightDots > 0)
+            int maxLines = fontHeight > 0 && elementHeightDots > 0
                 ? Math.Max(1, elementHeightDots / fontHeight)
                 : 10;
             maxLines = Math.Clamp(maxLines, 1, 10);
 
-            if (element.IsCentered)
-            {
-                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},{maxLines},0,C,0^FD{content}^FS";
-            }
-            else
-            {
-                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},{maxLines},0,L,0^FD{content}^FS";
-            }
+            var alignment = element.IsCentered ? "C" : "L";
+            return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},{maxLines},0,{alignment},0^FD{content}^FS";
         }
 
         private string GenerateBarcodeElement(LabelElement element, ResourceItem? dataSource, int dpi, (int left, int top, int right, int bottom) margins)
         {
             int y = ConvertPositionToDots(element.Y, dpi);
             int height = ConvertPositionToDots(element.Height, dpi);
-            
+
             // Ensure minimum height for readability
             height = Math.Max(height, LabelSizeHelper.MmToDots(5, dpi)); // Min 5mm
 
             double ratio = 2.5; // Bar width to height ratio for Code 128
 
             string data = ResolveFieldValue(element, dataSource);
-            // Strip leading zeros for RFID visual barcode display
-            if (element.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true)
-                data = StripLeadingZerosForDisplay(data);
             data = SanitizeBarcodeData(data);
 
+            // Dynamic module width calculation based on element.Width
+            // Code 128: Each character â‰ˆ 11 modules, plus start/stop/checksum (35 modules overhead)
             var layout = LabelSizeHelper.CalculateCode128Layout(data, element.Width, dpi);
             int elementWidthDots = ConvertPositionToDots(element.Width, dpi);
-            int actualBarcodeWidth = layout.ActualWidthDots;
+
+            // Calculate optimal module width to fill the available space
             int moduleWidth = layout.ModuleWidthDots;
+
+            // Clamp to reasonable printing range (2-10 dots)
+            moduleWidth = Math.Clamp(moduleWidth, LabelSizeHelper.MIN_BARCODE_MODULE_WIDTH, LabelSizeHelper.MAX_BARCODE_MODULE_WIDTH);
+
+            // Recalculate actual barcode width with the clamped module width
+            int actualBarcodeWidth = layout.ActualWidthDots;
 
             int x;
             if (element.IsCentered)
             {
                 // Center barcode within element's defined X position and width
                 int elementX = ConvertPositionToDots(element.X, dpi);
-                
+
                 // Calculate centered X position within the element's bounding box
                 x = elementX + Math.Max(0, (elementWidthDots - actualBarcodeWidth) / 2);
             }
@@ -305,77 +295,12 @@ namespace BarTenderClone.Services
 
         private string ResolveFieldValue(LabelElement element, ResourceItem? dataSource)
         {
-            if (string.IsNullOrWhiteSpace(element.FieldName) || dataSource == null)
-            {
-                return element.Content ?? string.Empty;
-            }
-
-            var fallback = element.Content ?? string.Empty;
-
-            return element.FieldName.ToUpperInvariant() switch
-            {
-                "RFID" => dataSource.Rfid ?? fallback,
-                "ITEMCODE" => dataSource.Code ?? fallback,
-                "PRODUCTNAME" => dataSource.ProductName ?? fallback,
-                "PRICE" => $"{dataSource.Price:N0} MNT",
-                "BRANCH" => dataSource.Branch ?? fallback,
-                "STATUS" => dataSource.Status ?? fallback,
-                "UNIT" => dataSource.Unit ?? fallback,
-                "DATE" => dataSource.DisplayDate != DateTime.MinValue
-                    ? dataSource.DisplayDate.ToString("yyyy-MM-dd")
-                    : fallback,
-                "ACQUISITIONDATE" => dataSource.AcquisitionDateFormatted ?? fallback,
-                "CATEGORY" => dataSource.Category ?? fallback,
-                "MAINCATEGORY" => dataSource.MainCategory ?? fallback,
-                "SUBCATEGORY" => dataSource.SubCategory ?? fallback,
-                "SUPPLIER" => dataSource.Supplier ?? fallback,
-                "BARCODE" => dataSource.Barcode ?? fallback,
-                "CURRENCY" => dataSource.Currency ?? fallback,
-                "BOXNUMBER" => dataSource.BoxNumber ?? fallback,
-                "RESPONSIBLEEMPLOYEE" => dataSource.ResponsibleEmployee ?? fallback,
-                _ => ResolveFieldFromDocumentJson(element.FieldName, dataSource, fallback)
-            };
+            return LabelFieldValueResolver.ResolveVisualValue(element, dataSource);
         }
 
-        private static string ResolveFieldFromDocumentJson(string fieldName, ResourceItem dataSource, string fallback)
+        public static string StripLeadingZerosForDisplay(string rfid)
         {
-            if (string.IsNullOrWhiteSpace(dataSource.DocumentJson))
-            {
-                return fallback;
-            }
-
-            try
-            {
-                var document = JObject.Parse(dataSource.DocumentJson);
-
-                foreach (var section in new[] { "product_rfid", "tms_product_rfid", "product", "tms_product" })
-                {
-                    var token = document[section];
-                    if (token is not JObject obj)
-                    {
-                        continue;
-                    }
-
-                    var directMatch = obj[fieldName];
-                    if (directMatch != null)
-                    {
-                        return directMatch.ToString();
-                    }
-
-                    foreach (var property in obj.Properties())
-                    {
-                        if (property.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return property.Value.ToString();
-                        }
-                    }
-                }
-            }
-            catch
-            {
-            }
-
-            return fallback;
+            return LabelFieldValueResolver.StripLeadingZerosForDisplay(rfid);
         }
 
         /// <summary>
@@ -384,7 +309,7 @@ namespace BarTenderClone.Services
         /// </summary>
         private int ConvertPositionToDots(double pixels, int dpi)
         {
-            return LabelSizeHelper.ScreenPixelsToDots(pixels, dpi);
+            return LabelSizeHelper.ScreenPixelsToDots(Math.Max(0, pixels), dpi);
         }
 
         private string SanitizeZplContent(string content)
@@ -407,16 +332,7 @@ namespace BarTenderClone.Services
 
         private string GenerateRfidEncoding(LabelElement element, ResourceItem? dataSource, RfidConfiguration config)
         {
-            string rfidData = ResolveFieldValue(element, dataSource);
-            return GenerateRfidEncodingFromData(rfidData, config);
-        }
-
-        /// <summary>
-        /// Core RFID encoding logic — does not require a visual LabelElement.
-        /// Used both by element-based encoding and the fallback path for blank templates.
-        /// </summary>
-        private string GenerateRfidEncodingFromData(string rfidData, RfidConfiguration config)
-        {
+            string rfidData = LabelFieldValueResolver.ResolveRawValue(element, dataSource);
             if (string.IsNullOrWhiteSpace(rfidData)) rfidData = "0000000000000000";
 
             var formatChar = config.DataFormat switch
@@ -434,8 +350,13 @@ namespace BarTenderClone.Services
             }
 
             int byteCount = rfidData.Length / 2;
+            var zpl = new StringBuilder();
             // Explicit format: ^RFW,[format],[block],[bytes],[master]
-            return $"^RFW,{formatChar},{config.StartingBlock},{byteCount},1^FD{rfidData}^FS\r\n";
+            zpl.Append($"^RFW,{formatChar},{config.StartingBlock},{byteCount},1^FD{rfidData}^FS\r\n");
+
+            // REMOVED: ^HV1 (Host Verification) as it may hang the spooler if not read
+
+            return zpl.ToString();
         }
 
         private string SanitizeHexData(string data)
@@ -450,18 +371,6 @@ namespace BarTenderClone.Services
         }
 
         /// <summary>
-        /// Strips leading zeros from an RFID string for human-readable display on printed labels.
-        /// Does NOT affect RFID encoding — only used for text/barcode visual elements.
-        /// Follows chipmo2 pattern: fixedRfid = rfid.replace(/^0+/, '')
-        /// </summary>
-        internal static string StripLeadingZerosForDisplay(string rfid)
-        {
-            if (string.IsNullOrEmpty(rfid)) return "0";
-            var trimmed = rfid.TrimStart('0');
-            return string.IsNullOrEmpty(trimmed) ? "0" : trimmed;
-        }
-
-        /// <summary>
         /// Generates ZPL commands for a QR Code element.
         /// Uses ^BQ command for QR code generation on Zebra printers.
         /// </summary>
@@ -469,11 +378,8 @@ namespace BarTenderClone.Services
         {
             int x = ConvertPositionToDots(element.X, dpi);
             int y = ConvertPositionToDots(element.Y, dpi);
-            
+
             string data = ResolveFieldValue(element, dataSource);
-            // Strip leading zeros for RFID display (consistent with text/barcode elements)
-            if (element.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true)
-                data = StripLeadingZerosForDisplay(data);
             data = SanitizeQrCodeData(data);
 
             // Calculate magnification based on element height

@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
@@ -138,7 +139,10 @@ namespace BarTenderClone.Models
         public string ProductName => ParsedDocument?.Product?.Name ?? "Unknown";
 
         [JsonIgnore]
-        public decimal Price => ParsedDocument?.Product?.Cost ?? 0;
+        public decimal Price => ParsedDocument?.Product?.DisplayPrice ?? 0;
+
+        [JsonIgnore]
+        public decimal Cost => ParsedDocument?.Product?.Cost ?? 0;
 
         [JsonIgnore]
         public string Code => ParsedDocument?.Product?.ItemCode ?? string.Empty;
@@ -202,14 +206,9 @@ namespace BarTenderClone.Models
         [JsonIgnore]
         public string ResponsibleEmployee => ParsedDocument?.ProductRfid?.ResponsibleEmployee ?? string.Empty;
 
-        // Indexer for dynamic field access (used by dynamic grid columns)
         [JsonIgnore]
         public string? this[string fieldName] => GetFieldValue(fieldName);
 
-        /// <summary>
-        /// Flattened document fields discovered from the raw JSON payload.
-        /// Keys are stable JSON paths such as `tms_product.name` or `tms_product_rfid.branch`.
-        /// </summary>
         [JsonIgnore]
         public IReadOnlyDictionary<string, string> DocumentFieldValues
             => _documentFieldValues ??= BuildDocumentFieldValues();
@@ -226,10 +225,11 @@ namespace BarTenderClone.Models
                 "ITEMCODE" => EmptyToNull(Code),
                 "PRODUCTNAME" => EmptyToNull(ProductName),
                 "PRICE" => $"MNT {Price:N0}",
+                "COST" => Cost > 0 ? Cost.ToString("N0", CultureInfo.InvariantCulture) : null,
                 "BRANCH" => EmptyToNull(Branch),
                 "STATUS" => EmptyToNull(Status),
                 "UNIT" => EmptyToNull(Unit),
-                "DATE" => CreationTime != DateTime.MinValue ? CreationTime.ToString("yyyy-MM-dd") : null,
+                "DATE" => DisplayDate != DateTime.MinValue ? DisplayDate.ToString("yyyy-MM-dd") : null,
                 "ACQUISITIONDATE" => EmptyToNull(AcquisitionDateFormatted),
                 "CATEGORY" => EmptyToNull(Category),
                 "MAINCATEGORY" => EmptyToNull(MainCategory),
@@ -263,8 +263,10 @@ namespace BarTenderClone.Models
                 "itemcode" => "ItemCode",
                 "name" => "ProductName",
                 "productname" => "ProductName",
-                "cost" => "Price",
+                "cost" => "Cost",
                 "price" => "Price",
+                "discountprice" => "Price",
+                "displayprice" => "Price",
                 "measureunit" => "Unit",
                 "unit" => "Unit",
                 "creationtime" => "Date",
@@ -293,9 +295,7 @@ namespace BarTenderClone.Models
                     continue;
 
                 if (BuildLookupKey(kvp.Key).Equals(requestedKey, StringComparison.OrdinalIgnoreCase))
-                {
                     return string.IsNullOrWhiteSpace(kvp.Value) ? null : kvp.Value;
-                }
             }
 
             return null;
@@ -324,9 +324,8 @@ namespace BarTenderClone.Models
                 }
 
                 if (!string.IsNullOrWhiteSpace(prefix) && scalar.Value != null)
-                {
                     values[prefix] = scalar.Value.ToString() ?? string.Empty;
-                }
+
                 return;
             }
 
@@ -340,6 +339,7 @@ namespace BarTenderClone.Models
 
                     FlattenToken(property.Value, childPrefix, values);
                 }
+
                 return;
             }
 
@@ -560,39 +560,6 @@ namespace BarTenderClone.Models
             }
         }
 
-        // RFID activation status (from backend: 0=Идэвхгүй, 1=Идэвхтэй, ...)
-        [JsonIgnore]
-        public int RfidStatusCode =>
-            int.TryParse(Status, out var v) ? v : -1;
-
-        [JsonIgnore]
-        public string RfidStatusText => RfidStatusCode switch
-        {
-            0  => "Идэвхгүй",
-            1  => "Идэвхтэй",
-            2  => "Борлуулсан",
-            3  => "Бусад",
-            4  => "Гэмтэлтэй",
-            5  => "Хулгайд алдсан",
-            6  => "Актласан",
-            7  => "Бэлэглэсэн",
-            8  => "Шилжүүлсэн",
-            9  => "Буцаасан",
-            10 => "Түгээлтэнд гарсан",
-            _  => "—"
-        };
-
-        [JsonIgnore]
-        public Brush RfidStatusBrush => RfidStatusCode switch
-        {
-            1            => Brushes.MediumSeaGreen,  // Идэвхтэй — ногоон
-            2 or 3 or 7  => Brushes.CornflowerBlue, // Борлуулсан/Бусад/Бэлэглэсэн — цэнхэр
-            4 or 5 or 9  => Brushes.IndianRed,      // Гэмтэлтэй/Хулгайд/Буцаасан — улаан
-            6 or 8 or 10 => Brushes.DarkOrange,     // Актласан/Шилжүүлсэн/Түгээлт — шар
-            0            => Brushes.DarkGray,       // Идэвхгүй — саарал
-            _            => Brushes.Gray            // Тодорхойгүй
-        };
-
         private void ApplyTopLevelData(ProductDto? product = null, ProductRfidDto? productRfid = null)
         {
             ParsedDocument ??= new ResourceDocument();
@@ -688,6 +655,9 @@ namespace BarTenderClone.Models
         [JsonProperty("price")]
         public object? PriceRaw { get; set; }
 
+        [JsonProperty("discountPrice")]
+        public object? DiscountPriceRaw { get; set; }
+
         [JsonProperty("currency")]
         public object? CurrencyRaw { get; set; }
 
@@ -699,12 +669,18 @@ namespace BarTenderClone.Models
         {
             get
             {
-                var raw = CostRaw ?? PriceRaw;
-                if (raw == null) return 0;
-                if (decimal.TryParse(raw.ToString(), out var result)) return result;
-                return 0;
+                return ParseAmount(CostRaw) ?? 0;
             }
             set { CostRaw = value; }
+        }
+
+        [JsonIgnore]
+        public decimal DisplayPrice
+        {
+            get
+            {
+                return FirstPositive(DiscountPriceRaw, PriceRaw, CurrencyRaw, CostRaw) ?? 0;
+            }
         }
         
         [JsonProperty("CreationTime")]
@@ -743,6 +719,63 @@ namespace BarTenderClone.Models
 
         [JsonProperty("productInfo")]
         public string? ProductInfoJson { get; set; }
+
+        private static decimal? FirstPositive(params object?[] values)
+        {
+            foreach (var value in values)
+            {
+                var parsed = ParseAmount(value);
+                if (parsed.HasValue && parsed.Value > 0)
+                    return parsed.Value;
+            }
+
+            return null;
+        }
+
+        private static decimal? ParseAmount(object? raw)
+        {
+            if (raw == null)
+                return null;
+
+            if (raw is decimal decimalValue)
+                return decimalValue;
+
+            if (raw is int intValue)
+                return intValue;
+
+            if (raw is long longValue)
+                return longValue;
+
+            if (raw is double doubleValue && !double.IsNaN(doubleValue) && !double.IsInfinity(doubleValue))
+                return Convert.ToDecimal(doubleValue, CultureInfo.InvariantCulture);
+
+            if (raw is float floatValue && !float.IsNaN(floatValue) && !float.IsInfinity(floatValue))
+                return Convert.ToDecimal(floatValue, CultureInfo.InvariantCulture);
+
+            var text = raw.ToString();
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            text = text.Trim();
+
+            if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var invariantValue))
+                return invariantValue;
+
+            if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var currentCultureValue))
+                return currentCultureValue;
+
+            var numericText = new string(text
+                .Where(c => char.IsDigit(c) || c == '-' || c == '.' || c == ',')
+                .ToArray());
+
+            if (string.IsNullOrWhiteSpace(numericText))
+                return null;
+
+            numericText = numericText.Replace(",", string.Empty);
+            return decimal.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var cleanedValue)
+                ? cleanedValue
+                : null;
+        }
     }
 
     public class ProductRfidDto
@@ -814,16 +847,7 @@ namespace BarTenderClone.Models
         [JsonIgnore]
         public DateTime? CreationTime
         {
-            get
-            {
-                if (CreationTimeRaw == null) return null;
-                var str = CreationTimeRaw.ToString();
-                if (string.IsNullOrWhiteSpace(str)) return null;
-                if (DateTime.TryParse(str, out var dt)) return dt;
-                str = str.Replace(".", "-");
-                if (DateTime.TryParse(str, out dt)) return dt;
-                return null;
-            }
+            get => ParseDate(CreationTimeRaw);
             set { CreationTimeRaw = value; }
         }
 
@@ -833,16 +857,7 @@ namespace BarTenderClone.Models
         [JsonIgnore]
         public DateTime? AcquisitionDate
         {
-            get
-            {
-                if (AcquisitionDateRaw == null) return null;
-                var str = AcquisitionDateRaw.ToString();
-                if (string.IsNullOrWhiteSpace(str)) return null;
-                if (DateTime.TryParse(str, out var dt)) return dt;
-                str = str.Replace(".", "-");
-                if (DateTime.TryParse(str, out dt)) return dt;
-                return null;
-            }
+            get => ParseDate(AcquisitionDateRaw);
             set { AcquisitionDateRaw = value; }
         }
 
@@ -898,6 +913,22 @@ namespace BarTenderClone.Models
 
         [JsonProperty("printErrorMessage")]
         public string? PrintErrorMessage { get; set; }
+
+        private static DateTime? ParseDate(object? raw)
+        {
+            if (raw == null)
+                return null;
+
+            var str = raw.ToString();
+            if (string.IsNullOrWhiteSpace(str))
+                return null;
+
+            if (DateTime.TryParse(str, out var dt))
+                return dt;
+
+            str = str.Replace(".", "-");
+            return DateTime.TryParse(str, out dt) ? dt : null;
+        }
     }
 
     public class UpdatePrintStatusRequest
@@ -905,7 +936,7 @@ namespace BarTenderClone.Models
         [JsonProperty("rfid")]
         public string Rfid { get; set; } = string.Empty;
 
-        // Backend expects "isPrint" with value 2 (printed/Тийм) or 1 (not printed/Үгүй)
+        // Backend expects "isPrint" with value 1 (printed) or 2 (not printed)
         [JsonProperty("isPrint")]
         public int IsPrint { get; set; }
 

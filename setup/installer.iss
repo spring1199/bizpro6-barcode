@@ -1,7 +1,9 @@
 ; BizPro6 Barcode Inno Setup Script
 
 #define MyAppName "BizPro6 Barcode"
+#ifndef MyAppVersion
 #define MyAppVersion "3.1.0"
+#endif
 #define MyAppPublisher "ChipmoBarcode"
 #define MyAppExeName "BizPro6Barcode.exe"
 
@@ -41,6 +43,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
+; Main executable and all dependencies from publish folder
 Source: "..\dist\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]

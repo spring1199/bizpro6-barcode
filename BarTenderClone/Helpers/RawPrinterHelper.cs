@@ -1,4 +1,4 @@
-using BarTenderClone.Models;
+﻿using BarTenderClone.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -115,8 +115,7 @@ namespace BarTenderClone.Helpers
                 {
                     if (StartPagePrinter(hPrinter))
                     {
-                        var writeSucceeded = WritePrinter(hPrinter, pBytes, dwCount, out dwWritten);
-                        bSuccess = writeSucceeded && dwWritten == dwCount;
+                        bSuccess = WritePrinter(hPrinter, pBytes, dwCount, out dwWritten);
                         EndPagePrinter(hPrinter);
                     }
                     EndDocPrinter(hPrinter);
@@ -147,20 +146,19 @@ namespace BarTenderClone.Helpers
             {
                 Marshal.FreeCoTaskMem(pBytes);
             }
-            
+
             return bSuccess;
         }
 
         /// <summary>
         /// Sends string to printer and returns the job ID for monitoring
         /// </summary>
-        public static (bool success, int jobId, int win32Error) SendStringToPrinterWithJobTracking(string szPrinterName, string szString)
+        public static (bool success, int jobId) SendStringToPrinterWithJobTracking(string szPrinterName, string szString)
         {
             IntPtr pBytes = IntPtr.Zero;
             IntPtr hPrinter = IntPtr.Zero;
             bool bSuccess = false;
             int jobId = 0;
-            int win32Error = 0;
 
             try
             {
@@ -184,27 +182,12 @@ namespace BarTenderClone.Helpers
                     {
                         if (StartPagePrinter(hPrinter))
                         {
-                            var writeSucceeded = WritePrinter(hPrinter, pBytes, dwCount, out int dwWritten);
-                            bSuccess = writeSucceeded && dwWritten == dwCount;
-                            if (!bSuccess)
-                                win32Error = Marshal.GetLastWin32Error();
+                            bSuccess = WritePrinter(hPrinter, pBytes, dwCount, out int dwWritten);
                             EndPagePrinter(hPrinter);
-                        }
-                        else
-                        {
-                            win32Error = Marshal.GetLastWin32Error();
                         }
                         EndDocPrinter(hPrinter);
                     }
-                    else
-                    {
-                        win32Error = Marshal.GetLastWin32Error();
-                    }
                     ClosePrinter(hPrinter);
-                }
-                else
-                {
-                    win32Error = Marshal.GetLastWin32Error();
                 }
             }
             finally
@@ -213,13 +196,13 @@ namespace BarTenderClone.Helpers
                     Marshal.FreeCoTaskMem(pBytes);
             }
 
-            return (bSuccess, jobId, win32Error);
+            return (bSuccess, jobId);
         }
 
         /// <summary>
         /// Gets the status of a specific print job
         /// </summary>
-        public static (bool success, int status, string statusText, int win32Error) GetJobStatus(string printerName, int jobId)
+        public static (bool success, int status, string statusText) GetJobStatus(string printerName, int jobId)
         {
             IntPtr hPrinter = IntPtr.Zero;
             IntPtr pJob = IntPtr.Zero;
@@ -227,17 +210,10 @@ namespace BarTenderClone.Helpers
             try
             {
                 if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero))
-                    return (false, 0, "Failed to open printer", Marshal.GetLastWin32Error());
+                    return (false, 0, "Failed to open printer");
 
                 // First call to get required buffer size
                 GetJob(hPrinter, jobId, 1, IntPtr.Zero, 0, out int cbNeeded);
-
-                var probeError = Marshal.GetLastWin32Error();
-
-                if (cbNeeded <= 0)
-                {
-                    return (false, 0, "Failed to get job info", probeError);
-                }
 
                 pJob = Marshal.AllocHGlobal(cbNeeded);
 
@@ -245,10 +221,10 @@ namespace BarTenderClone.Helpers
                 {
                     JOB_INFO_1 jobInfo = Marshal.PtrToStructure<JOB_INFO_1>(pJob);
                     string statusText = GetJobStatusText(jobInfo.Status);
-                    return (true, jobInfo.Status, statusText, 0);
+                    return (true, jobInfo.Status, statusText);
                 }
 
-                return (false, 0, "Failed to get job info", Marshal.GetLastWin32Error());
+                return (false, 0, "Failed to get job info");
             }
             finally
             {
@@ -287,7 +263,7 @@ namespace BarTenderClone.Helpers
 
             while ((DateTime.Now - startTime).TotalMilliseconds < timeoutMs)
             {
-                var (success, status, statusText, _) = GetJobStatus(printerName, jobId);
+                var (success, status, statusText) = GetJobStatus(printerName, jobId);
 
                 if (!success)
                 {
@@ -325,13 +301,11 @@ namespace BarTenderClone.Helpers
                 await Task.Delay(pollInterval);
             }
 
-            // Timeout reached - printer likely printed successfully but job tracking couldn't confirm.
-            // Treat as SpoolerError so callers use optimistic/soft-success path.
             return new PrintResult
             {
                 Success = false,
-                ErrorMessage = "Print job tracking timeout (print likely succeeded)",
-                ErrorType = PrintErrorType.SpoolerError,
+                ErrorMessage = "Print job timeout",
+                ErrorType = PrintErrorType.Unknown,
                 JobId = jobId
             };
         }

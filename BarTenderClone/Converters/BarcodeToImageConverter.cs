@@ -21,27 +21,26 @@ namespace BarTenderClone.Converters
         public object Convert(object[] values, System.Type targetType, object parameter, CultureInfo culture)
         {
             // values[0] = Content (string)
-            // values[1] = Width (double) - user specified element width
+            // values[1] = Width (double) - element width in screen pixels
             // values[2] = Height (double)
             // values[3] = PrinterDpi (int)
             // values[4] = IsCentered (bool)
             if (values == null || values.Length < 3)
                 return DependencyProperty.UnsetValue;
 
-            string? content = values[0] as string;
-            if (string.IsNullOrEmpty(content))
+            var content = values[0] as string;
+            if (string.IsNullOrWhiteSpace(content))
                 return DependencyProperty.UnsetValue;
 
-            // Get element dimensions (in screen pixels)
             double elementWidth = 200;
             double elementHeight = 40;
             int printerDpi = 203;
             bool isCentered = false;
 
-            if (values[1] is double w && w > 0)
-                elementWidth = w;
-            if (values[2] is double h && h > 0)
-                elementHeight = h;
+            if (values[1] is double width && width > 0)
+                elementWidth = width;
+            if (values[2] is double height && height > 0)
+                elementHeight = height;
             if (values.Length > 3 && values[3] is int dpi && dpi > 0)
                 printerDpi = dpi;
             if (values.Length > 4 && values[4] is bool centered)
@@ -49,34 +48,32 @@ namespace BarTenderClone.Converters
 
             try
             {
-                int width = (int)Math.Max(Math.Round(elementWidth), 50);
-                int height = (int)Math.Max(
+                int imageWidth = (int)Math.Max(Math.Round(elementWidth), 50);
+                int imageHeight = (int)Math.Max(
                     Math.Round(elementHeight),
                     Math.Round(LabelSizeHelper.MmToScreenPixels(5)));
 
                 var layout = LabelSizeHelper.CalculateCode128Layout(content, elementWidth, printerDpi);
                 double barcodeWidth = Math.Max(1, Math.Min(layout.ActualWidthPixels, elementWidth));
-                var barcodeSource = CreateBarcodeImage(content, barcodeWidth, height);
+                var barcodeSource = CreateBarcodeImage(content, barcodeWidth, imageHeight);
 
-                // Create visual
-                DrawingVisual drawingVisual = new DrawingVisual();
-                using (DrawingContext dc = drawingVisual.RenderOpen())
+                var drawingVisual = new DrawingVisual();
+                using (var dc = drawingVisual.RenderOpen())
                 {
-                    dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
+                    dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, imageWidth, imageHeight));
 
-                    double totalBarsWidth = barcodeSource.Width;
                     double startX = isCentered
-                        ? Math.Max(0, (width - totalBarsWidth) / 2)
+                        ? Math.Max(0, (imageWidth - barcodeSource.Width) / 2)
                         : 0;
                     dc.DrawImage(barcodeSource, new Rect(startX, 0, barcodeSource.Width, barcodeSource.Height));
                 }
 
-                RenderTargetBitmap bmp = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-                bmp.Render(drawingVisual);
-                bmp.Freeze();
-                return bmp;
+                var bitmap = new RenderTargetBitmap(imageWidth, imageHeight, 96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(drawingVisual);
+                bitmap.Freeze();
+                return bitmap;
             }
-            catch (Exception)
+            catch
             {
                 return DependencyProperty.UnsetValue;
             }

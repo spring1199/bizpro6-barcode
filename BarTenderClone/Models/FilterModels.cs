@@ -59,7 +59,6 @@ namespace BarTenderClone.Models
                 if (!string.IsNullOrWhiteSpace(CodeFilter)) count++;
                 if (!string.IsNullOrWhiteSpace(ProductNameFilter)) count++;
                 if (!string.IsNullOrWhiteSpace(UnitFilter) && UnitFilter != "All") count++;
-                if (!string.IsNullOrWhiteSpace(BranchFilter) && BranchFilter != "All") count++;
                 if (!string.IsNullOrWhiteSpace(BoxNumberFilter)) count++;
                 if (MinPrice.HasValue || MaxPrice.HasValue) count++;
                 if (StartDate.HasValue || EndDate.HasValue) count++;
@@ -82,7 +81,6 @@ namespace BarTenderClone.Models
             CodeFilter = string.Empty;
             ProductNameFilter = string.Empty;
             UnitFilter = "All";
-            BranchFilter = "All";
             BoxNumberFilter = string.Empty;
             MinPrice = null;
             MaxPrice = null;
@@ -119,12 +117,6 @@ namespace BarTenderClone.Models
         }
 
         partial void OnUnitFilterChanged(string value)
-        {
-            OnPropertyChanged(nameof(ActiveFilterCount));
-            OnPropertyChanged(nameof(HasActiveFilters));
-        }
-
-        partial void OnBranchFilterChanged(string value)
         {
             OnPropertyChanged(nameof(ActiveFilterCount));
             OnPropertyChanged(nameof(HasActiveFilters));

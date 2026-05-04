@@ -13,7 +13,10 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-dist/
+dist/*
+!dist/
+!dist/installer/
+!dist/installer/*.exe
 
 # Visual Studio cache/options
 .vs/

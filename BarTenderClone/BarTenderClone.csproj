@@ -11,6 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="**\*-DESKTOP-6LFP9FV*.cs" />
+    <Page Remove="**\*-DESKTOP-6LFP9FV*.xaml" />
+    <None Remove="**\*-DESKTOP-6LFP9FV*.*" />
+    <Content Remove="**\*-DESKTOP-6LFP9FV*.*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

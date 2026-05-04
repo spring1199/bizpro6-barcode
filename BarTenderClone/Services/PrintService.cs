@@ -1,4 +1,4 @@
-using BarTenderClone.Helpers;
+﻿using BarTenderClone.Helpers;
 using BarTenderClone.Models;
 using System;
 using System.Collections.Generic;
@@ -23,9 +23,9 @@ namespace BarTenderClone.Services
 
         private PrinterConfiguration GetDefaultPrinterConfiguration()
         {
-            return new PrinterConfiguration 
-            { 
-                Dpi = 203, 
+            return new PrinterConfiguration
+            {
+                Dpi = 203,
                 EnableUtf8 = true,
                 Darkness = 15,
                 PrintSpeed = 3
@@ -56,76 +56,34 @@ namespace BarTenderClone.Services
         private string GenerateSequentialRfidData(string baseRfidData, int labelNumber, int totalLabels)
         {
             if (string.IsNullOrWhiteSpace(baseRfidData))
-                return string.Empty; // No base RFID — caller will skip encoding
+                return $"{labelNumber:D16}"; // Fallback: use label number as hex
 
-            // Treat the entire hex string as a big integer and add (labelNumber - 1)
-            if (baseRfidData.All(c => "0123456789ABCDEFabcdef".Contains(c)) && baseRfidData.Length > 0)
+            // For hexadecimal format (most common with RFID):
+            // Increment the last 4 hex characters to create unique RFID per label
+            if (baseRfidData.All(c => "0123456789ABCDEFabcdef".Contains(c)))
             {
-                int length = baseRfidData.Length;
-                // Perform big-integer addition on the hex string (carry propagates left)
-                int increment = labelNumber - 1; // label 1 keeps original
-                char[] digits = baseRfidData.ToUpperInvariant().ToCharArray();
-                int carry = increment;
-
-                for (int i = length - 1; i >= 0 && carry > 0; i--)
+                if (baseRfidData.Length >= 4)
                 {
-                    int digitVal = (digits[i] >= '0' && digits[i] <= '9')
-                        ? digits[i] - '0'
-                        : digits[i] - 'A' + 10;
-                    int sum = digitVal + carry;
-                    carry = sum / 16;
-                    int rem = sum % 16;
-                    digits[i] = rem < 10 ? (char)('0' + rem) : (char)('A' + rem - 10);
-                }
-                // If carry remains (overflow past the full string), wrap
-                if (carry > 0)
-                    throw new InvalidOperationException($"RFID sequence overflow for base value '{baseRfidData}' and quantity {totalLabels}.");
+                    string prefix = baseRfidData.Length > 4 ? baseRfidData.Substring(0, baseRfidData.Length - 4) : "";
+                    string lastFour = baseRfidData.Substring(Math.Max(0, baseRfidData.Length - 4));
 
-                return new string(digits);
+                    if (int.TryParse(lastFour, System.Globalization.NumberStyles.HexNumber, null, out int lastBytes))
+                    {
+                        // First label keeps original value, subsequent labels increment
+                        int newValue = lastBytes + labelNumber - 1;
+                        string newLastFour = newValue.ToString("X").PadLeft(4, '0');
+
+                        // If overflow beyond 4 digits, take last 4
+                        if (newLastFour.Length > 4)
+                            newLastFour = newLastFour.Substring(newLastFour.Length - 4);
+
+                        return $"{prefix}{newLastFour}";
+                    }
+                }
             }
 
             // Fallback: append label number as suffix
             return $"{baseRfidData}-{labelNumber}";
-        }
-
-        private static bool IsHexString(string value)
-        {
-            return !string.IsNullOrWhiteSpace(value) &&
-                   value.All(c => "0123456789ABCDEFabcdef".Contains(c));
-        }
-
-        private static bool ContainsOnlyAscii(string value)
-        {
-            return value.All(c => c <= sbyte.MaxValue);
-        }
-
-        private void ValidateRfidRequest(ResourceItem? dataSource, RfidConfiguration rfidConfig, int quantity, PrintOptions options)
-        {
-            if (!rfidConfig.EnableRfidEncoding)
-                return;
-
-            if (dataSource == null)
-                throw new InvalidOperationException("RFID encoding requires a selected data source.");
-
-            if (string.IsNullOrWhiteSpace(dataSource.Rfid))
-                throw new InvalidOperationException("RFID data is empty but RFID encoding is enabled.");
-
-            if (quantity > 1 && !options.EnableDetailedTracking)
-            {
-                throw new InvalidOperationException(
-                    "Multi-label RFID printing requires detailed tracking to generate unique RFID data per label.");
-            }
-
-            if (rfidConfig.DataFormat == RfidDataFormat.Hexadecimal && !IsHexString(dataSource.Rfid))
-                throw new InvalidOperationException("RFID data is not valid hexadecimal.");
-
-            if (rfidConfig.DataFormat == RfidDataFormat.ASCII && !ContainsOnlyAscii(dataSource.Rfid))
-                throw new InvalidOperationException("RFID data contains non-ASCII characters.");
-
-            if (quantity > 1)
-            {
-                _ = GenerateSequentialRfidData(dataSource.Rfid, quantity, quantity);
-            }
         }
 
         /// <summary>
@@ -144,29 +102,14 @@ namespace BarTenderClone.Services
                         Name = original.ParsedDocument.Product.Name,
                         ItemCode = original.ParsedDocument.Product.ItemCode,
                         MeasureUnit = original.ParsedDocument.Product.MeasureUnit,
-                        CostRaw = original.ParsedDocument.Product.CostRaw,
-                        PriceRaw = original.ParsedDocument.Product.PriceRaw,
-                        CreationTimeRaw = original.ParsedDocument.Product.CreationTimeRaw,
-                        Category = original.ParsedDocument.Product.Category,
-                        MainCategory = original.ParsedDocument.Product.MainCategory,
-                        SubCategory = original.ParsedDocument.Product.SubCategory,
-                        NameOfSupplier = original.ParsedDocument.Product.NameOfSupplier,
-                        Barcode = original.ParsedDocument.Product.Barcode,
-                        ProductInfoJson = original.ParsedDocument.Product.ProductInfoJson
+                        Cost = original.ParsedDocument.Product.Cost,
+                        CreationTime = original.ParsedDocument.Product.CreationTime
                     } : new ProductDto(),
                     ProductRfid = original.ParsedDocument.ProductRfid != null ? new ProductRfidDto
                     {
-                        Id = original.ParsedDocument.ProductRfid.Id,  // CRITICAL: Preserve Id for API status updates
                         Rfid = newRfidData,  // Override with new RFID data
                         Branch = original.ParsedDocument.ProductRfid.Branch,
-                        BoxNumber = original.ParsedDocument.ProductRfid.BoxNumber,
-                        StatusRaw = original.ParsedDocument.ProductRfid.StatusRaw,
-                        CreationTimeRaw = original.ParsedDocument.ProductRfid.CreationTimeRaw,
-                        AcquisitionDateRaw = original.ParsedDocument.ProductRfid.AcquisitionDateRaw,
-                        ResponsibleEmployee = original.ParsedDocument.ProductRfid.ResponsibleEmployee,
-                        IsPrintRaw = original.ParsedDocument.ProductRfid.IsPrintRaw,
-                        LastPrintedTimeRaw = original.ParsedDocument.ProductRfid.LastPrintedTimeRaw,
-                        PrintErrorMessage = original.ParsedDocument.ProductRfid.PrintErrorMessage
+                        Status = original.ParsedDocument.ProductRfid.Status
                     } : new ProductRfidDto { Rfid = newRfidData }
                 } : null
             };
@@ -216,7 +159,7 @@ namespace BarTenderClone.Services
                 _logger.LogDebug($"Printing label {labelNumber}: ZPL generated");
 
                 // Send to printer
-                var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+                var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
 
                 if (!success)
                 {
@@ -234,7 +177,7 @@ namespace BarTenderClone.Services
                 _logger.LogDebug($"Label {labelNumber} sent to spooler with JobId={jobId}");
 
                 // Wait for completion (Best Effort)
-                try 
+                try
                 {
                     var completionResult = await RawPrinterHelper.WaitForJobCompletionAsync(
                         printerName,
@@ -251,7 +194,7 @@ namespace BarTenderClone.Services
                     else if (completionResult.ErrorType == PrintErrorType.SpoolerError)
                     {
                         // Tracking failed but print was sent - treat as success with warning
-                        labelResult.Success = true; 
+                        labelResult.Success = true;
                         labelResult.ErrorMessage = "Print sent. Status tracking unavailable.";
                         _logger.LogWarning($"Label {labelNumber} tracking failed: {completionResult.ErrorMessage}. Print likely successful.");
                     }
@@ -301,87 +244,90 @@ namespace BarTenderClone.Services
             string printerName,
             int quantity = 1)
         {
-            var result = new PrintResult();
-
-            try
+            return await Task.Run(() =>
             {
-                _logger.LogInfo($"Starting print job: Printer={printerName}, Quantity={quantity}");
+                var result = new PrintResult();
 
-                // Validate printer exists
-                if (!GetInstalledPrinters().Contains(printerName))
-                {
-                    result.Success = false;
-                    result.ErrorMessage = $"Printer '{printerName}' not found";
-                    result.ErrorType = PrintErrorType.PrinterNotFound;
-                    _logger.LogWarning(result.ErrorMessage);
-                    return result;
-                }
-
-                // Generate ZPL
-                string zpl = _zplGenerator.GenerateZpl(elements, dataSource, template, GetDefaultPrinterConfiguration(), quantity);
-                _logger.LogDebug($"Generated ZPL:\n{zpl}");
-
-                // Send to printer with job tracking
-                var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
-
-                if (!success)
-                {
-                    result.Success = false;
-                    result.ErrorMessage = "Failed to send print job to spooler";
-                    result.ErrorType = PrintErrorType.SpoolerError;
-                    _logger.LogError(result.ErrorMessage);
-                    return result;
-                }
-
-                result.JobId = jobId;
-                _logger.LogInfo($"Print job sent successfully. JobId={jobId}");
-
-                // OPTIMISTIC STATUS CHECK
                 try
                 {
-                    var completionResult = await RawPrinterHelper.WaitForJobCompletionAsync(
-                        printerName,
-                        jobId,
-                        timeoutMs: 30000 // Increased timeout for mobile printers
-                    );
+                    _logger.LogInfo($"Starting print job: Printer={printerName}, Quantity={quantity}");
 
-                    if (completionResult.Success)
+                    // Validate printer exists
+                    if (!GetInstalledPrinters().Contains(printerName))
                     {
-                         result.Success = true;
-                         _logger.LogInfo($"Print job completed successfully. JobId={jobId}");
+                        result.Success = false;
+                        result.ErrorMessage = $"Printer '{printerName}' not found";
+                        result.ErrorType = PrintErrorType.PrinterNotFound;
+                        _logger.LogWarning(result.ErrorMessage);
+                        return result;
                     }
-                    else if (completionResult.ErrorType == PrintErrorType.SpoolerError)
+
+                    // Generate ZPL
+                    string zpl = _zplGenerator.GenerateZpl(elements, dataSource, template, GetDefaultPrinterConfiguration(), quantity);
+                    _logger.LogDebug($"Generated ZPL:\n{zpl}");
+
+                    // Send to printer with job tracking
+                    var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+
+                    if (!success)
                     {
-                         // Tracking failed but print was sent - treat as success with warning
-                         result.Success = true;
-                         result.ErrorMessage = "Print sent. Status tracking unavailable.";
-                         _logger.LogWarning($"Print tracking failed: {completionResult.ErrorMessage}. Print likely successful.");
+                        result.Success = false;
+                        result.ErrorMessage = "Failed to send print job to spooler";
+                        result.ErrorType = PrintErrorType.SpoolerError;
+                        _logger.LogError(result.ErrorMessage);
+                        return result;
                     }
-                    else
+
+                    result.JobId = jobId;
+                    _logger.LogInfo($"Print job sent successfully. JobId={jobId}");
+
+                    // OPTIMISTIC STATUS CHECK
+                    try
                     {
-                         result.Success = false;
-                         result.ErrorMessage = completionResult.ErrorMessage;
-                         result.ErrorType = completionResult.ErrorType;
-                         _logger.LogError($"Print job failed: {result.ErrorMessage}");
+                        var completionResult = RawPrinterHelper.WaitForJobCompletionAsync(
+                            printerName,
+                            jobId,
+                            timeoutMs: 30000 // Increased timeout for mobile printers
+                        ).GetAwaiter().GetResult();
+
+                        if (completionResult.Success)
+                        {
+                             result.Success = true;
+                             _logger.LogInfo($"Print job completed successfully. JobId={jobId}");
+                        }
+                        else if (completionResult.ErrorType == PrintErrorType.SpoolerError)
+                        {
+                             // Tracking failed but print was sent - treat as success with warning
+                             result.Success = true;
+                             result.ErrorMessage = "Print sent. Status tracking unavailable.";
+                             _logger.LogWarning($"Print tracking failed: {completionResult.ErrorMessage}. Print likely successful.");
+                        }
+                        else
+                        {
+                             result.Success = false;
+                             result.ErrorMessage = completionResult.ErrorMessage;
+                             result.ErrorType = completionResult.ErrorType;
+                             _logger.LogError($"Print job failed: {result.ErrorMessage}");
+                        }
                     }
+                    catch (Exception trackEx)
+                    {
+                        _logger.LogWarning($"Tracking crashed: {trackEx.Message}. Print likely successful.");
+                        result.Success = true;
+                        result.ErrorMessage = "Print sent. Tracking unavailable.";
+                    }
+
+                    return result;
                 }
-                catch (Exception trackEx)
+                catch (Exception ex)
                 {
-                    _logger.LogWarning($"Tracking crashed: {trackEx.Message}. Print likely successful.");
-                    result.Success = true;
-                    result.ErrorMessage = "Print sent. Tracking unavailable.";
+                    result.Success = false;
+                    result.ErrorMessage = $"Print exception: {ex.Message}";
+                    result.ErrorType = PrintErrorType.Unknown;
+                    _logger.LogError("Print operation failed", ex);
+                    return result;
                 }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.ErrorMessage = $"Print exception: {ex.Message}";
-                result.ErrorType = PrintErrorType.Unknown;
-                _logger.LogError("Print operation failed", ex);
-                return result;
-            }
+            });
         }
 
         /// <summary>
@@ -407,9 +353,6 @@ namespace BarTenderClone.Services
             {
                 _logger.LogInfo($"Starting RFID print: Printer={printerName}, Quantity={quantity}, DetailedTracking={options.EnableDetailedTracking}, RFID={rfidConfig.EnableRfidEncoding}");
 
-                // Validate RFID request upfront (catches overflow, missing data, format errors)
-                ValidateRfidRequest(dataSource, rfidConfig, quantity, options);
-
                 // Validate printer
                 if (!GetInstalledPrinters().Contains(printerName))
                 {
@@ -421,30 +364,12 @@ namespace BarTenderClone.Services
                 }
 
                 // Validate RFID data if encoding enabled
-                if (rfidConfig.EnableRfidEncoding)
+                if (rfidConfig.EnableRfidEncoding && dataSource != null)
                 {
-                    if (dataSource == null)
-                    {
-                        result.Success = false;
-                        result.ErrorMessage = "RFID encoding enabled but no data source provided. Please select a product first.";
-                        result.ErrorType = PrintErrorType.InvalidData;
-                        _logger.LogError(result.ErrorMessage);
-                        return result;
-                    }
-
-                    if (dataSource.ParsedDocument?.ProductRfid == null)
-                    {
-                        result.Success = false;
-                        result.ErrorMessage = "RFID encoding enabled but product has no RFID data. Check if data was loaded correctly.";
-                        result.ErrorType = PrintErrorType.InvalidData;
-                        _logger.LogError($"Product ID={dataSource.Id} has null ProductRfid. ParsedDocument null={dataSource.ParsedDocument == null}");
-                        return result;
-                    }
-
                     if (string.IsNullOrWhiteSpace(dataSource.Rfid))
                     {
                         result.Success = false;
-                        result.ErrorMessage = "RFID data is empty but RFID encoding is enabled. Product may not have RFID assigned.";
+                        result.ErrorMessage = "RFID data is empty but RFID encoding is enabled";
                         result.ErrorType = PrintErrorType.InvalidData;
                         _logger.LogWarning(result.ErrorMessage);
                         return result;
@@ -548,7 +473,7 @@ namespace BarTenderClone.Services
                     );
                     _logger.LogDebug($"Generated RFID ZPL:\n{zpl}");
 
-                    var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+                    var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
 
                     if (!success)
                     {
@@ -696,14 +621,9 @@ namespace BarTenderClone.Services
                         batchResult.FailureCount++;
                         _logger.LogError($"Batch item failed: {dataSource.ProductName} - {printResult.ErrorMessage}");
 
-                        // Respect StopOnFirstFailure option
-                        if (options.StopOnFirstFailure)
-                        {
-                            _logger.LogWarning($"Stopping batch print due to failure (StopOnFirstFailure=true). {batchResult.FailureCount} failed, {batchResult.TotalItems - batchResult.SuccessCount - batchResult.FailureCount} not attempted");
-                            break;
-                        }
-
-                        _logger.LogWarning($"Batch item failed but continuing (StopOnFirstFailure=false). {batchResult.FailureCount} failed so far.");
+                        // CRITICAL: Stop batch on first failure (as per requirements)
+                        _logger.LogWarning($"Stopping batch print due to failure. {batchResult.FailureCount} failed, {batchResult.TotalItems - batchResult.SuccessCount - batchResult.FailureCount} not attempted");
+                        break;
                     }
 
                     // Small delay between items to avoid overwhelming printer
@@ -741,7 +661,7 @@ namespace BarTenderClone.Services
 
                     string zpl = GenerateLegacyZpl(item, quantity);
 
-                    var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
+                    var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(printerName, zpl);
 
                     if (!success)
                     {

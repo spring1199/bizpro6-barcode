@@ -90,6 +90,11 @@ namespace BarTenderClone.Models
         /// </summary>
         public bool IsBold { get; set; }
 
+        /// <summary>
+        /// Horizontal centering flag used by text and barcode rendering.
+        /// </summary>
+        public bool IsCentered { get; set; }
+
         // Note: IsSelected is intentionally excluded - it's UI state only
     }
 }

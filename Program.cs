@@ -1,115 +1,110 @@
-using System;
-using System.IO;
+using BarTenderClone.Helpers;
+using BarTenderClone.Models;
+using BarTenderClone.Services;
 using Newtonsoft.Json;
-using System.Collections.Generic;
 
-namespace Test
+namespace TemplateParityProbe;
+
+internal static class Program
 {
-    class Program
+    private static int Main()
     {
-        static void Main()
+        var rawRfid = "0000000000000000B61F05C9";
+        var displayRfid = "B61F05C9";
+
+        var item = new ResourceItem
         {
-            try
+            ParsedDocument = new ResourceDocument
             {
-                var responseString = File.ReadAllText(@"C:\Users\mooji\OneDrive\Desktop\mobicom-barcode-v2\api_latest_response.txt");
-                var directResult = JsonConvert.DeserializeObject<ResourceResultWrapper>(responseString);
-                var items = directResult?.Result?.Items ?? new List<ResourceItem>();
-                int c = 0;
-                foreach (var item in items)
+                Product = new ProductDto
                 {
-                    if (!string.IsNullOrEmpty(item.DocumentJson))
-                    {
-                        try
-                        {
-                            var parsed = JsonConvert.DeserializeObject<ResourceDocument>(item.DocumentJson);
-                            c++;
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error parsing item {item.Id}: {ex.Message}");
-                            return;
-                        }
-                    }
+                    Name = "Probe Product",
+                    ItemCode = "SKU-1",
+                    PriceRaw = 125000
+                },
+                ProductRfid = new ProductRfidDto
+                {
+                    Rfid = rawRfid
                 }
-                Console.WriteLine($"Success! Parsed {c} documents.");
             }
-            catch(Exception ex)
+        };
+
+        var element = new LabelElement
+        {
+            Type = ElementType.Barcode,
+            FieldName = "RFID",
+            Content = "{RFID}",
+            X = -8,
+            Y = 12,
+            Width = 226.77,
+            Height = 35,
+            IsCentered = true
+        };
+
+        AssertEqual(displayRfid, LabelFieldValueResolver.ResolveVisualValue(element, item), "visual RFID");
+        AssertEqual(rawRfid, LabelFieldValueResolver.ResolveRawValue(element, item), "raw RFID");
+
+        var zpl = new ZplGeneratorService().GenerateZplWithRfid(
+            new[] { element },
+            item,
+            new LabelTemplate { Width = 226.77, Height = 151.18 },
+            new RfidConfiguration
             {
-                Console.WriteLine("Main error: " + ex.Message);
+                EnableRfidEncoding = true,
+                DataFormat = RfidDataFormat.Hexadecimal
+            },
+            new PrinterConfiguration
+            {
+                Dpi = 203,
+                EnableUtf8 = true
+            });
+
+        AssertContains(zpl, $"^FD{displayRfid}^FS", "visual barcode uses stripped RFID");
+        AssertContains(zpl, $"^FD{rawRfid}^FS", "RFID encoder uses raw RFID");
+        AssertDoesNotContain(zpl, "^FO-", "negative coordinates are clamped before ZPL output");
+        AssertEqual("0", LabelFieldValueResolver.StripLeadingZerosForDisplay("0000"), "all-zero RFID display");
+        AssertEqual(
+            "{RFID}",
+            LabelFieldValueResolver.ResolveVisualValue("RFID", new ResourceItem(), "{RFID}"),
+            "missing RFID keeps template placeholder");
+
+        var dto = new LabelTemplateDto
+        {
+            Name = "Roundtrip",
+            Elements =
+            {
+                new LabelElementDto
+                {
+                    Type = ElementType.Barcode,
+                    FieldName = "RFID",
+                    IsCentered = true
+                }
             }
-        }
+        };
+
+        var roundTrip = JsonConvert.DeserializeObject<LabelTemplateDto>(
+            JsonConvert.SerializeObject(dto))!;
+        AssertEqual(true, roundTrip.Elements[0].IsCentered, "template IsCentered roundtrip");
+
+        Console.WriteLine("Template parity probe passed.");
+        return 0;
     }
 
-    public class ResourceResultWrapper
+    private static void AssertEqual<T>(T expected, T actual, string name)
     {
-        [JsonProperty("result")]
-        public ResourceResult? Result { get; set; }
+        if (!EqualityComparer<T>.Default.Equals(expected, actual))
+            throw new InvalidOperationException($"{name}: expected '{expected}', got '{actual}'.");
     }
 
-    public class ResourceResult
+    private static void AssertContains(string text, string expected, string name)
     {
-        [JsonProperty("totalCount")]
-        public int TotalCount { get; set; }
-        [JsonProperty("items")]
-        public List<ResourceItem> Items { get; set; } = new List<ResourceItem>();
+        if (!text.Contains(expected, StringComparison.Ordinal))
+            throw new InvalidOperationException($"{name}: expected generated ZPL to contain '{expected}'.");
     }
 
-    public class ResourceItem
+    private static void AssertDoesNotContain(string text, string unexpected, string name)
     {
-        [JsonProperty("id")]
-        public long Id { get; set; }
-        [JsonProperty("document")]
-        public string DocumentJson { get; set; } = string.Empty;
-    }
-
-    public class ResourceDocument
-    {
-        [JsonProperty("product")]
-        public ProductDto Product { get; set; } = new();
-
-        [JsonProperty("product_rfid")]
-        public ProductRfidDto ProductRfid { get; set; } = new();
-    }
-
-    public class ProductDto
-    {
-        [JsonProperty("name")]
-        public string? Name { get; set; }
-
-        [JsonProperty("itemCode")]
-        public string? ItemCode { get; set; }
-
-        [JsonProperty("measureUnit")]
-        public string? MeasureUnit { get; set; }
-
-        [JsonProperty("cost")]
-        public decimal Cost { get; set; }
-        
-        [JsonProperty("CreationTime")]
-        public DateTime CreationTime { get; set; }
-    }
-
-    public class ProductRfidDto
-    {
-        [JsonProperty("rfid")]
-        public string? Rfid { get; set; }
-
-        [JsonProperty("branch")]
-        public string? Branch { get; set; }
-
-        [JsonProperty("boxNumber")]
-        public string? BoxNumber { get; set; }
-
-        [JsonProperty("status")]
-        public int Status { get; set; }
-
-        [JsonProperty("isPrint")]
-        public object? IsPrintRaw { get; set; }
-
-        [JsonProperty("lastPrintedTime")]
-        public DateTime? LastPrintedTime { get; set; }
-
-        [JsonProperty("printErrorMessage")]
-        public string? PrintErrorMessage { get; set; }
+        if (text.Contains(unexpected, StringComparison.Ordinal))
+            throw new InvalidOperationException($"{name}: generated ZPL contained '{unexpected}'.");
     }
 }

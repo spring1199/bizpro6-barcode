@@ -11,7 +11,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BarTenderClone.Views;
-using Newtonsoft.Json.Linq;
 
 namespace BarTenderClone.ViewModels
 {
@@ -775,7 +774,7 @@ namespace BarTenderClone.ViewModels
             Elements.Add(new LabelElement
             {
                 Type = ElementType.Barcode,
-                Content = ZplGeneratorService.StripLeadingZerosForDisplay(product.Rfid ?? string.Empty) is { Length: > 0 } s ? s : "12345678",
+                Content = LabelFieldValueResolver.StripLeadingZerosForDisplay(product.Rfid) is { Length: > 0 } s ? s : "12345678",
                 FieldName = "RFID",
                 X = leftMargin,  // Start from left margin
                 Y = currentY,
@@ -1452,8 +1451,13 @@ namespace BarTenderClone.ViewModels
                         ? element.Content.Substring(0, 20) + "..."
                         : element.Content ?? "Text element");
 
-                // WYSIWYG mode: Only warn if element is COMPLETELY outside the template
-                // (not just touching margins, since preview shows exact print area)
+                if (element.X < 0)
+                    warnings.Add($"'{elementDesc}' starts before left edge (will be clamped for print)");
+
+                if (element.Y < 0)
+                    warnings.Add($"'{elementDesc}' starts above top edge (will be clamped for print)");
+
+                // WYSIWYG mode: warn when any element can be cropped by the label bounds.
                 if (element.X + element.Width > Template.Width + 10)
                     warnings.Add($"'{elementDesc}' extends beyond right edge (may be cropped)");
 
@@ -1483,7 +1487,7 @@ namespace BarTenderClone.ViewModels
                 // Absolute minimal ZPL - no special modes, just text.
                 string testZpl = "^XA^FO50,50^A0N,50,50^FDTEST OK^FS^XZ";
                 
-                var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, testZpl);
+                var (success, jobId) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, testZpl);
                 
                 if (success)
                 {
@@ -1513,7 +1517,7 @@ namespace BarTenderClone.ViewModels
                 // CPCL command to switch device language to ZPL
                 string switchCmd = "! U1 setvar \"device.languages\" \"zpl\"\r\n";
                 
-                var (success, _, __) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, switchCmd);
+                var (success, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, switchCmd);
                 
                 if (success)
                 {
@@ -1691,6 +1695,13 @@ namespace BarTenderClone.ViewModels
 
         private async Task PrintSingleWithRfidAsync()
         {
+            var selectedPrinter = SelectedPrinter;
+            if (string.IsNullOrWhiteSpace(selectedPrinter))
+            {
+                StatusMessage = "Please select a printer.";
+                return;
+            }
+
             StatusMessage = "Printing...";
 
             // When no product is selected (manual label mode) but RFID encoding is on,
@@ -1745,7 +1756,7 @@ namespace BarTenderClone.ViewModels
                 Elements,
                 effectiveDataSource,
                 Template,
-                SelectedPrinter,
+                selectedPrinter,
                 rfidConfig,
                 Quantity,
                 printOptions,
@@ -1812,7 +1823,7 @@ namespace BarTenderClone.ViewModels
                         detailsBuilder.AppendLine($"Failed: {failed}");
                         detailsBuilder.AppendLine();
                         detailsBuilder.AppendLine("Failed Labels:");
-                        foreach (var label in result.LabelResults.Where(l => !l.Success))
+                        foreach (var label in (result.LabelResults ?? Enumerable.Empty<LabelResult>()).Where(l => !l.Success))
                         {
                             detailsBuilder.AppendLine($"  Label {label.LabelNumber}: {label.ErrorMessage}");
                         }
@@ -1907,6 +1918,13 @@ namespace BarTenderClone.ViewModels
 
         private async Task PrintBatchWithRfidAsync()
         {
+            var selectedPrinter = SelectedPrinter;
+            if (string.IsNullOrWhiteSpace(selectedPrinter))
+            {
+                StatusMessage = "Please select a printer.";
+                return;
+            }
+
             int totalItems = SelectedProducts.Count;
             int totalLabels = totalItems * Quantity;
 
@@ -1961,7 +1979,7 @@ namespace BarTenderClone.ViewModels
                 Elements,
                 SelectedProducts,
                 Template,
-                SelectedPrinter,
+                selectedPrinter,
                 rfidConfig,
                 Quantity,
                 printOptions,
@@ -2110,45 +2128,10 @@ namespace BarTenderClone.ViewModels
                 return;
             }
 
-            var resolved = ResolveFieldFromProduct(element.FieldName, product, element.Content ?? string.Empty);
+            var resolved = LabelFieldValueResolver.ResolveVisualValue(element.FieldName, product, element.Content ?? string.Empty);
             element.Content = !string.IsNullOrWhiteSpace(resolved)
                 ? resolved
                 : $"{{{element.FieldName}}}";
-        }
-
-        private string ResolveFieldFromProduct(string fieldName, ResourceItem product, string fallback)
-        {
-            var normalizedField = fieldName.ToUpperInvariant();
-
-            var resolved = normalizedField switch
-            {
-                "RFID" => ZplGeneratorService.StripLeadingZerosForDisplay(product.Rfid ?? string.Empty),
-                "ITEMCODE" => product.Code,
-                "PRODUCTNAME" => product.ProductName,
-                "PRICE" => $"MNT {product.Price:N0}",
-                "BRANCH" => product.Branch,
-                "STATUS" => product.Status,
-                "UNIT" => product.Unit,
-                "DATE" => product.DisplayDate != DateTime.MinValue ? product.DisplayDate.ToString("yyyy-MM-dd") : fallback,
-                "ACQUISITIONDATE" => product.AcquisitionDateFormatted,
-                "CATEGORY" => product.Category,
-                "MAINCATEGORY" => product.MainCategory,
-                "SUBCATEGORY" => product.SubCategory,
-                "SUPPLIER" => product.Supplier,
-                "BARCODE" => product.Barcode,
-                "CURRENCY" => product.Currency,
-                "BOXNUMBER" => product.BoxNumber,
-                "RESPONSIBLEEMPLOYEE" => product.ResponsibleEmployee,
-                _ => ResolveFieldFromDocumentJson(fieldName, product)
-            };
-
-            return string.IsNullOrWhiteSpace(resolved) ? fallback : resolved;
-        }
-
-        private static string? ResolveFieldFromDocumentJson(string fieldName, ResourceItem product)
-        {
-            // Delegate to the new unified field resolution via DocumentFieldValues
-            return product.GetFieldValue(fieldName);
         }
 
         // ===== RESOURCE METADATA =====
