@@ -146,6 +146,8 @@ namespace BarTenderClone.Services
                         MeasureUnit = original.ParsedDocument.Product.MeasureUnit,
                         CostRaw = original.ParsedDocument.Product.CostRaw,
                         PriceRaw = original.ParsedDocument.Product.PriceRaw,
+                        DiscountPriceRaw = original.ParsedDocument.Product.DiscountPriceRaw,
+                        CurrencyRaw = original.ParsedDocument.Product.CurrencyRaw,
                         CreationTimeRaw = original.ParsedDocument.Product.CreationTimeRaw,
                         Category = original.ParsedDocument.Product.Category,
                         MainCategory = original.ParsedDocument.Product.MainCategory,

@@ -68,6 +68,37 @@ internal static class Program
             LabelFieldValueResolver.ResolveVisualValue("RFID", new ResourceItem(), "{RFID}"),
             "missing RFID keeps template placeholder");
 
+        var priceFallbackItem = new ResourceItem
+        {
+            ParsedDocument = new ResourceDocument
+            {
+                Product = new ProductDto
+                {
+                    CostRaw = 0,
+                    DiscountPriceRaw = 121000,
+                    PriceRaw = 99000,
+                    CurrencyRaw = "88,000 MNT"
+                }
+            }
+        };
+
+        AssertEqual(121000m, priceFallbackItem.Price, "display price prefers discountPrice over zero cost");
+        AssertEqual(0m, priceFallbackItem.Cost, "cost remains separate from display price");
+
+        var formattedPriceItem = new ResourceItem
+        {
+            ParsedDocument = new ResourceDocument
+            {
+                Product = new ProductDto
+                {
+                    CostRaw = 0,
+                    PriceRaw = "121,000 MNT"
+                }
+            }
+        };
+
+        AssertEqual(121000m, formattedPriceItem.Price, "display price parses formatted price strings");
+
         var dto = new LabelTemplateDto
         {
             Name = "Roundtrip",

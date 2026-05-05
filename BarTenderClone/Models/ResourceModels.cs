@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
@@ -138,7 +139,10 @@ namespace BarTenderClone.Models
         public string ProductName => ParsedDocument?.Product?.Name ?? "Unknown";
 
         [JsonIgnore]
-        public decimal Price => ParsedDocument?.Product?.Cost ?? 0;
+        public decimal Price => ParsedDocument?.Product?.DisplayPrice ?? 0;
+
+        [JsonIgnore]
+        public decimal Cost => ParsedDocument?.Product?.Cost ?? 0;
 
         [JsonIgnore]
         public string Code => ParsedDocument?.Product?.ItemCode ?? string.Empty;
@@ -688,6 +692,9 @@ namespace BarTenderClone.Models
         [JsonProperty("price")]
         public object? PriceRaw { get; set; }
 
+        [JsonProperty("discountPrice")]
+        public object? DiscountPriceRaw { get; set; }
+
         [JsonProperty("currency")]
         public object? CurrencyRaw { get; set; }
 
@@ -699,12 +706,18 @@ namespace BarTenderClone.Models
         {
             get
             {
-                var raw = CostRaw ?? PriceRaw;
-                if (raw == null) return 0;
-                if (decimal.TryParse(raw.ToString(), out var result)) return result;
-                return 0;
+                return ParseAmount(CostRaw) ?? 0;
             }
             set { CostRaw = value; }
+        }
+
+        [JsonIgnore]
+        public decimal DisplayPrice
+        {
+            get
+            {
+                return FirstPositive(DiscountPriceRaw, PriceRaw, CurrencyRaw, CostRaw) ?? 0;
+            }
         }
         
         [JsonProperty("CreationTime")]
@@ -743,6 +756,63 @@ namespace BarTenderClone.Models
 
         [JsonProperty("productInfo")]
         public string? ProductInfoJson { get; set; }
+
+        private static decimal? FirstPositive(params object?[] values)
+        {
+            foreach (var value in values)
+            {
+                var parsed = ParseAmount(value);
+                if (parsed.HasValue && parsed.Value > 0)
+                    return parsed.Value;
+            }
+
+            return null;
+        }
+
+        private static decimal? ParseAmount(object? raw)
+        {
+            if (raw == null)
+                return null;
+
+            if (raw is decimal decimalValue)
+                return decimalValue;
+
+            if (raw is int intValue)
+                return intValue;
+
+            if (raw is long longValue)
+                return longValue;
+
+            if (raw is double doubleValue)
+                return (decimal)doubleValue;
+
+            if (raw is float floatValue)
+                return (decimal)floatValue;
+
+            var text = raw.ToString();
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            text = text.Trim();
+
+            if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var invariantValue))
+                return invariantValue;
+
+            if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var currentCultureValue))
+                return currentCultureValue;
+
+            var numericText = new string(text
+                .Where(c => char.IsDigit(c) || c == '-' || c == '.' || c == ',')
+                .ToArray());
+
+            if (string.IsNullOrWhiteSpace(numericText))
+                return null;
+
+            numericText = numericText.Replace(",", string.Empty);
+            return decimal.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var cleanedValue)
+                ? cleanedValue
+                : null;
+        }
     }
 
     public class ProductRfidDto
