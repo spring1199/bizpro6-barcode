@@ -20,6 +20,7 @@
             <converters:StringToVisConverter x:Key="StringToVisConverter"/>
             <converters:BarcodeToImageConverter x:Key="BarcodeToImageConverter"/>
             <converters:QrCodeToImageConverter x:Key="QrCodeToImageConverter"/>
+            <converters:Base64ImageToImageSourceConverter x:Key="Base64ImageToImageSourceConverter"/>
             <converters:BoolToExpandIconConverter x:Key="BoolToExpandIconConverter"/>
             <converters:FontScaleConverter x:Key="FontScaleConverter"/>
             <converters:PixelToMmConverter x:Key="PixelToMmConverter"/>

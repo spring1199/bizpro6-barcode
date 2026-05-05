@@ -44,6 +44,41 @@ namespace BarTenderClone.Models
 
         [ObservableProperty]
         private bool _isCentered;
+
+        [ObservableProperty]
+        private int _rotationDegrees;
+
+        [ObservableProperty]
+        private string _imageDataBase64 = string.Empty;
+
+        [ObservableProperty]
+        private string _imageMimeType = string.Empty;
+
+        [ObservableProperty]
+        private string _imageFileName = string.Empty;
+
+        partial void OnRotationDegreesChanged(int value)
+        {
+            var normalized = NormalizeRotationDegrees(value);
+            if (normalized != value)
+            {
+                RotationDegrees = normalized;
+            }
+        }
+
+        public static int NormalizeRotationDegrees(int value)
+        {
+            var normalized = ((value % 360) + 360) % 360;
+            return normalized switch
+            {
+                0 or 90 or 180 or 270 => normalized,
+                < 45 => 0,
+                < 135 => 90,
+                < 225 => 180,
+                < 315 => 270,
+                _ => 0
+            };
+        }
     }
 
     public partial class LabelTemplate : ObservableObject

@@ -175,7 +175,7 @@ namespace BarTenderClone.Services
                         break;
 
                     case ElementType.Image:
-                        // Future enhancement
+                        zpl.AppendLine(GenerateImageElement(element, config.Dpi));
                         break;
                 }
             }
@@ -233,11 +233,11 @@ namespace BarTenderClone.Services
 
             if (element.IsCentered)
             {
-                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},{maxLines},0,C,0^FD{content}^FS";
+                return $"^FO{x},{y}^A{fontName}{GetZplOrientation(element.RotationDegrees)},{fontHeight},{fontWidth}^FB{width},{maxLines},0,C,0^FD{content}^FS";
             }
             else
             {
-                return $"^FO{x},{y}^A{fontName}N,{fontHeight},{fontWidth}^FB{width},{maxLines},0,L,0^FD{content}^FS";
+                return $"^FO{x},{y}^A{fontName}{GetZplOrientation(element.RotationDegrees)},{fontHeight},{fontWidth}^FB{width},{maxLines},0,L,0^FD{content}^FS";
             }
         }
 
@@ -281,7 +281,7 @@ namespace BarTenderClone.Services
                 x = Math.Max(0, x + offsetDots);
             }
 
-            return $"^FO{x},{y}^BY{moduleWidth},{ratio},{height}^BCN,{height},N,N,N^FD{data}^FS";
+            return $"^FO{x},{y}^BY{moduleWidth},{ratio},{height}^BC{GetZplOrientation(element.RotationDegrees)},{height},N,N,N^FD{data}^FS";
         }
 
         /// <summary>
@@ -407,7 +407,36 @@ namespace BarTenderClone.Services
             // m = model (2 = enhanced, recommended)
             // n = magnification factor (1-10)
             // Error correction is automatic (M level)
-            return $"^FO{x},{y}^BQN,2,{magnification}^FDMA,{data}^FS";
+            return $"^FO{x},{y}^BQ{GetZplOrientation(element.RotationDegrees)},2,{magnification}^FDMA,{data}^FS";
+        }
+
+        private string GenerateImageElement(LabelElement element, int dpi)
+        {
+            int x = ConvertPositionToDots(element.X, dpi);
+            int y = ConvertPositionToDots(element.Y, dpi);
+            int width = Math.Max(ConvertPositionToDots(element.Width, dpi), LabelSizeHelper.MmToDots(1, dpi));
+            int height = Math.Max(ConvertPositionToDots(element.Height, dpi), LabelSizeHelper.MmToDots(1, dpi));
+
+            var graphicField = LabelImageHelper.GenerateZplGraphic(
+                element.ImageDataBase64,
+                width,
+                height,
+                element.RotationDegrees);
+
+            return string.IsNullOrEmpty(graphicField)
+                ? string.Empty
+                : $"^FO{x},{y}{graphicField}^FS";
+        }
+
+        private static string GetZplOrientation(int rotationDegrees)
+        {
+            return LabelElement.NormalizeRotationDegrees(rotationDegrees) switch
+            {
+                90 => "R",
+                180 => "I",
+                270 => "B",
+                _ => "N"
+            };
         }
 
         private string SanitizeQrCodeData(string data)

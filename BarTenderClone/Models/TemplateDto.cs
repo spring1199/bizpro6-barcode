@@ -95,6 +95,26 @@ namespace BarTenderClone.Models
         /// </summary>
         public bool IsCentered { get; set; }
 
+        /// <summary>
+        /// Element rotation in degrees. Supported values: 0, 90, 180, 270.
+        /// </summary>
+        public int RotationDegrees { get; set; }
+
+        /// <summary>
+        /// Embedded PNG/JPEG/BMP image data for image elements.
+        /// </summary>
+        public string ImageDataBase64 { get; set; } = string.Empty;
+
+        /// <summary>
+        /// MIME type for embedded image data.
+        /// </summary>
+        public string ImageMimeType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Original file name for display only.
+        /// </summary>
+        public string ImageFileName { get; set; } = string.Empty;
+
         // Note: IsSelected is intentionally excluded - it's UI state only
     }
 }

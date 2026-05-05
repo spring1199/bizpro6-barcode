@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BarTenderClone.Views;
+using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 
 namespace BarTenderClone.ViewModels
@@ -261,8 +262,11 @@ namespace BarTenderClone.ViewModels
         {
             ElementType.Text,
             ElementType.Barcode,
-            ElementType.QRCode
+            ElementType.QRCode,
+            ElementType.Image
         };
+
+        public ObservableCollection<int> AvailableRotationDegrees { get; } = new() { 0, 90, 180, 270 };
 
         // Dynamic field options discovered from loaded products
         public ObservableCollection<ResourceFieldOption> AvailableFields { get; } = new();
@@ -830,6 +834,59 @@ namespace BarTenderClone.ViewModels
             Elements.Add(newBarcode);
             SelectElement(newBarcode);
             IsDirty = true;
+        }
+
+        [RelayCommand]
+        private void AddImage()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Select logo or image",
+                Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            try
+            {
+                var embedded = LabelImageHelper.LoadAndNormalizeForTemplate(dialog.FileName);
+                var margins = LabelSizeHelper.GetSafeMarginsPixels();
+                var maxWidth = Math.Max(40, Template.Width - margins.left - margins.right);
+                var maxHeight = Math.Max(30, Template.Height - margins.top - margins.bottom);
+
+                var scale = Math.Min(1.0, Math.Min(maxWidth / embedded.Width, maxHeight / embedded.Height));
+                var width = Math.Max(30, embedded.Width * scale);
+                var height = Math.Max(20, embedded.Height * scale);
+
+                var imageElement = new LabelElement
+                {
+                    Type = ElementType.Image,
+                    Content = Path.GetFileName(dialog.FileName),
+                    X = margins.left,
+                    Y = margins.top,
+                    Width = width,
+                    Height = height,
+                    ImageDataBase64 = embedded.Base64Data,
+                    ImageMimeType = embedded.MimeType,
+                    ImageFileName = Path.GetFileName(dialog.FileName)
+                };
+
+                Elements.Add(imageElement);
+                SelectElement(imageElement);
+                IsDirty = true;
+                StatusMessage = $"Image inserted: {imageElement.ImageFileName}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Image insert failed: {ex.Message}";
+                System.Windows.MessageBox.Show(
+                    $"Failed to insert image:\n\n{ex.Message}",
+                    "Image Insert Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
         }
 
         private void SelectElement(LabelElement element)

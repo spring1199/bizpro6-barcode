@@ -88,7 +88,11 @@ namespace BarTenderClone.Services
                         Type = e.Type,
                         FontSize = e.FontSize,
                         IsBold = e.IsBold,
-                        IsCentered = e.IsCentered
+                        IsCentered = e.IsCentered,
+                        RotationDegrees = LabelElement.NormalizeRotationDegrees(e.RotationDegrees),
+                        ImageDataBase64 = e.ImageDataBase64,
+                        ImageMimeType = e.ImageMimeType,
+                        ImageFileName = e.ImageFileName
                     }).ToList()
                 };
 
@@ -139,6 +143,10 @@ namespace BarTenderClone.Services
                     FontSize = e.FontSize,
                     IsBold = e.IsBold,
                     IsCentered = e.IsCentered,
+                    RotationDegrees = LabelElement.NormalizeRotationDegrees(e.RotationDegrees),
+                    ImageDataBase64 = e.ImageDataBase64 ?? string.Empty,
+                    ImageMimeType = e.ImageMimeType ?? string.Empty,
+                    ImageFileName = e.ImageFileName ?? string.Empty,
                     IsSelected = false
                 }).ToList();
 

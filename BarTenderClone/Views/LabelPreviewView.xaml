@@ -480,6 +480,8 @@
                                     Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0"/>
                             <Button Content="📊 Barcode" Command="{Binding AddBarcodeCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0"/>
+                            <Button Content="Image" Command="{Binding AddImageCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0"/>
                             <Button Content="Clear" Command="{Binding ClearCanvasCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,12,0"/>
 
@@ -581,7 +583,10 @@
                                                     <ControlTemplate>
                                                         <Grid>
                                                             <!-- Content Layer -->
-                                                            <Grid>
+                                                            <Grid RenderTransformOrigin="0.5,0.5">
+                                                                <Grid.RenderTransform>
+                                                                    <RotateTransform Angle="{Binding RotationDegrees}"/>
+                                                                </Grid.RenderTransform>
                                                                 <!-- Text Element -->
                                                                 <TextBlock Text="{Binding Content}"
                                                                            FontSize="{Binding FontSize, Converter={StaticResource FontScaleConverter}}"
@@ -639,6 +644,17 @@
                                                                             </MultiBinding>
                                                                         </Image.Source>
                                                                     </Image>
+                                                                </Border>
+
+                                                                <!-- Image Element -->
+                                                                <Border Width="{Binding Width}"
+                                                                        Height="{Binding Height}"
+                                                                        Background="Transparent"
+                                                                        Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Image}">
+                                                                    <Image Source="{Binding ImageDataBase64, Converter={StaticResource Base64ImageToImageSourceConverter}}"
+                                                                           Stretch="Uniform"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"/>
                                                                 </Border>
                                                             </Grid>
 
@@ -724,6 +740,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="100"/>
@@ -803,6 +820,9 @@
                                             <DataTrigger Binding="{Binding Type}" Value="QRCode">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding Type}" Value="Image">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
@@ -818,6 +838,9 @@
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Type}" Value="QRCode">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Type}" Value="Image">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -836,6 +859,9 @@
                                             <DataTrigger Binding="{Binding Type}" Value="QRCode">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding Type}" Value="Image">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
@@ -851,6 +877,9 @@
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Type}" Value="QRCode">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Type}" Value="Image">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -885,6 +914,16 @@
                                     </Style>
                                 </CheckBox.Style>
                             </CheckBox>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Rotation:" Style="{StaticResource BodyTextStyle}"
+                                       VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="5" Grid.Column="1"
+                                      ItemsSource="{Binding DataContext.AvailableRotationDegrees, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      SelectedItem="{Binding RotationDegrees, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Style="{StaticResource ModernComboBoxStyle}"
+                                      Width="90"
+                                      HorizontalAlignment="Left"
+                                      Margin="0,0,0,8"/>
                         </Grid>
 
                         <!-- Empty State Message -->
