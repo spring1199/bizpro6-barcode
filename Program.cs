@@ -98,6 +98,10 @@ internal static class Program
         AssertContains(zpl, "^A0R", "text rotation uses ZPL native 90-degree orientation");
         AssertContains(zpl, "^BQB", "QR rotation uses ZPL native 270-degree orientation");
         AssertContains(zpl, "^GFA", "image element emits inline ZPL graphic data");
+        AssertContains(
+            LabelImageHelper.GenerateZplGraphic(CreateRectangularProbeImageBase64(), 16, 8, 90),
+            "^GFA,16,16,2,",
+            "rotated image remains fitted to requested element width");
         AssertEqual("0", LabelFieldValueResolver.StripLeadingZerosForDisplay("0000"), "all-zero RFID display");
         AssertEqual(
             "{RFID}",
@@ -165,11 +169,21 @@ internal static class Program
 
     private static string CreateProbeImageBase64()
     {
-        using var bitmap = new System.Drawing.Bitmap(2, 2);
+        return CreateProbeImageBase64(2, 2);
+    }
+
+    private static string CreateRectangularProbeImageBase64()
+    {
+        return CreateProbeImageBase64(4, 2);
+    }
+
+    private static string CreateProbeImageBase64(int width, int height)
+    {
+        using var bitmap = new System.Drawing.Bitmap(width, height);
         bitmap.SetPixel(0, 0, System.Drawing.Color.Black);
-        bitmap.SetPixel(1, 0, System.Drawing.Color.White);
-        bitmap.SetPixel(0, 1, System.Drawing.Color.White);
-        bitmap.SetPixel(1, 1, System.Drawing.Color.Black);
+        bitmap.SetPixel(width - 1, 0, System.Drawing.Color.White);
+        bitmap.SetPixel(0, height - 1, System.Drawing.Color.White);
+        bitmap.SetPixel(width - 1, height - 1, System.Drawing.Color.Black);
 
         using var stream = new MemoryStream();
         bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);

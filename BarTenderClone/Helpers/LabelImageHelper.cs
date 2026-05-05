@@ -48,10 +48,10 @@ namespace BarTenderClone.Helpers
 
             using var sourceStream = new MemoryStream(Convert.FromBase64String(base64Data));
             using var source = new Bitmap(sourceStream);
-            using var scaled = DrawUniformOnWhiteCanvas(source, targetWidthDots, targetHeightDots);
-            using var rotated = ApplyRotation(scaled, rotationDegrees);
+            using var rotatedSource = ApplyRotation(source, rotationDegrees);
+            using var scaled = DrawUniformOnWhiteCanvas(rotatedSource, targetWidthDots, targetHeightDots);
 
-            return ToZplGraphicField(rotated);
+            return ToZplGraphicField(scaled);
         }
 
         private static Bitmap DrawUniformOnWhiteCanvas(Bitmap source, int targetWidth, int targetHeight)
