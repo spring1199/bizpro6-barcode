@@ -2,7 +2,7 @@
 
 #define MyAppName "BizPro6 Barcode"
 #ifndef MyAppVersion
-#define MyAppVersion "3.1.0"
+#define MyAppVersion "3.1.3"
 #endif
 #define MyAppPublisher "ChipmoBarcode"
 #define MyAppExeName "BizPro6Barcode.exe"

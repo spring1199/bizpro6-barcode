@@ -2,11 +2,12 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using BarTenderClone.Adorners;
+using BarTenderClone.Helpers;
+using BarTenderClone.Models;
+using BarTenderClone.ViewModels;
 
 namespace BarTenderClone.Views
 {
@@ -15,10 +16,7 @@ namespace BarTenderClone.Views
         // Pan state tracking
         private Point? _panStartPoint;
         private Point? _panStartOffset;
-
-        // Adorner management
-        private ResizeAdorner? _currentAdorner;
-        private AdornerLayer? _adornerLayer;
+        private ResizeDragState? _resizeDragState;
 
         // Ctrl+Click range select tracking
         private int _lastSelectedIndex = -1;
@@ -44,28 +42,27 @@ namespace BarTenderClone.Views
             CanvasScrollViewer.PreviewMouseUp += CanvasScrollViewer_PreviewMouseUp;
         }
 
-        private void Thumb_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+        private void Thumb_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            if (sender is System.Windows.Controls.Primitives.Thumb thumb && thumb.DataContext is BarTenderClone.Models.LabelElement element)
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element &&
+                DataContext is LabelPreviewViewModel viewModel)
             {
-                element.X += e.HorizontalChange;
-                element.Y += e.VerticalChange;
-                
-                // Restrict movement: cannot move left of canvas (X >= 0)
-                if (element.X < 0) element.X = 0;
-                if (element.Y < 0) element.Y = 0;
+                DesignerInteractionHelper.MoveElement(
+                    element,
+                    viewModel.Template,
+                    e.HorizontalChange,
+                    e.VerticalChange,
+                    viewModel.CurrentZoom);
             }
         }
 
-        private void Thumb_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void Thumb_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is System.Windows.Controls.Primitives.Thumb thumb &&
-                thumb.DataContext is BarTenderClone.Models.LabelElement element &&
-                DataContext is BarTenderClone.ViewModels.LabelPreviewViewModel viewModel)
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element &&
+                DataContext is LabelPreviewViewModel viewModel)
             {
-                // Remove old adorner if exists
-                RemoveAdorner();
-
                 // Deselect all elements
                 foreach (var el in viewModel.Elements)
                 {
@@ -75,45 +72,75 @@ namespace BarTenderClone.Views
                 // Select this element
                 element.IsSelected = true;
                 viewModel.SelectedElement = element;
-
-                // Add adorner to selected element
-                AddAdorner(thumb, element);
             }
         }
 
-        private void AddAdorner(System.Windows.Controls.Primitives.Thumb thumb, BarTenderClone.Models.LabelElement element)
+        private void ResizeHandle_DragStarted(object sender, DragStartedEventArgs e)
         {
-            // Try to get the adorner layer from the thumb first, then walk up if null
-            _adornerLayer = AdornerLayer.GetAdornerLayer(thumb);
-
-            if (_adornerLayer == null)
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element &&
+                thumb.Tag is string tag &&
+                Enum.TryParse<ResizeHandleDirection>(tag, out var handle))
             {
-                DependencyObject current = thumb;
-                while (current != null)
+                var local = DesignerInteractionHelper.GetLocalSize(element);
+                _resizeDragState = new ResizeDragState(
+                    element,
+                    handle,
+                    element.X,
+                    element.Y,
+                    local.Width,
+                    local.Height,
+                    element.RotationDegrees);
+
+                e.Handled = true;
+            }
+        }
+
+        private void ResizeHandle_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element &&
+                DataContext is LabelPreviewViewModel viewModel)
+            {
+                if (_resizeDragState == null || !ReferenceEquals(_resizeDragState.Element, element))
                 {
-                    current = System.Windows.Media.VisualTreeHelper.GetParent(current);
-                    if (current is UIElement ui)
-                    {
-                        _adornerLayer = AdornerLayer.GetAdornerLayer(ui);
-                        if (_adornerLayer != null) break;
-                    }
-                }
-            }
+                    var fallbackHandle = ResizeHandleDirection.BottomRight;
+                    if (thumb.Tag is string tag && Enum.TryParse<ResizeHandleDirection>(tag, out var parsedHandle))
+                        fallbackHandle = parsedHandle;
 
-            if (_adornerLayer != null)
-            {
-                _currentAdorner = new ResizeAdorner(thumb, element);
-                _adornerLayer.Add(_currentAdorner);
+                    var local = DesignerInteractionHelper.GetLocalSize(element);
+                    _resizeDragState = new ResizeDragState(
+                        element,
+                        fallbackHandle,
+                        element.X,
+                        element.Y,
+                        local.Width,
+                        local.Height,
+                        element.RotationDegrees);
+                }
+
+                _resizeDragState.CumulativeDelta += new Vector(e.HorizontalChange, e.VerticalChange);
+
+                DesignerInteractionHelper.ResizeElementFromSnapshot(
+                    element,
+                    viewModel.Template,
+                    _resizeDragState.Handle,
+                    _resizeDragState.StartX,
+                    _resizeDragState.StartY,
+                    _resizeDragState.StartWidth,
+                    _resizeDragState.StartHeight,
+                    _resizeDragState.StartRotationDegrees,
+                    _resizeDragState.CumulativeDelta,
+                    viewModel.CurrentZoom);
+
+                e.Handled = true;
             }
         }
 
-        private void RemoveAdorner()
+        private void ResizeHandle_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            if (_currentAdorner != null && _adornerLayer != null)
-            {
-                _adornerLayer.Remove(_currentAdorner);
-                _currentAdorner = null;
-            }
+            _resizeDragState = null;
+            e.Handled = true;
         }
 
         private void UserControl_KeyDown(object sender, KeyEventArgs e)
@@ -122,9 +149,6 @@ namespace BarTenderClone.Views
             {
                 if (viewModel.SelectedElement != null)
                 {
-                    // Remove adorner before deleting element
-                    RemoveAdorner();
-
                     viewModel.Elements.Remove(viewModel.SelectedElement);
                     viewModel.SelectedElement = null;
                     e.Handled = true;
@@ -280,6 +304,36 @@ namespace BarTenderClone.Views
         #endregion
 
 
+        private sealed class ResizeDragState
+        {
+            public ResizeDragState(
+                LabelElement element,
+                ResizeHandleDirection handle,
+                double startX,
+                double startY,
+                double startWidth,
+                double startHeight,
+                int startRotationDegrees)
+            {
+                Element = element;
+                Handle = handle;
+                StartX = startX;
+                StartY = startY;
+                StartWidth = startWidth;
+                StartHeight = startHeight;
+                StartRotationDegrees = startRotationDegrees;
+            }
+
+            public LabelElement Element { get; }
+            public ResizeHandleDirection Handle { get; }
+            public double StartX { get; }
+            public double StartY { get; }
+            public double StartWidth { get; }
+            public double StartHeight { get; }
+            public int StartRotationDegrees { get; }
+            public Vector CumulativeDelta { get; set; }
+        }
+
 
         private void ProductDataPanel_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -396,7 +450,6 @@ namespace BarTenderClone.Views
                 // Clear label element selection when clicking empty canvas
                 if (DataContext is BarTenderClone.ViewModels.LabelPreviewViewModel viewModel && viewModel.SelectedElement != null)
                 {
-                    RemoveAdorner();
                     foreach (var el in viewModel.Elements)
                     {
                         el.IsSelected = false;
@@ -453,9 +506,6 @@ namespace BarTenderClone.Views
         {
             if (DataContext is BarTenderClone.ViewModels.LabelPreviewViewModel viewModel)
             {
-                // Remove adorner
-                RemoveAdorner();
-                
                 // Deselect all label elements
                 if (viewModel.SelectedElement != null)
                 {

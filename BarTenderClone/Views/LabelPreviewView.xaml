@@ -569,126 +569,318 @@
 
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
-                                            <Setter Property="Canvas.Left" Value="{Binding X, Mode=TwoWay}"/>
-                                            <Setter Property="Canvas.Top" Value="{Binding Y, Mode=TwoWay}"/>
+                                            <Setter Property="Canvas.Left">
+                                                <Setter.Value>
+                                                    <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="VisualLeft">
+                                                        <Binding Path="X"/>
+                                                        <Binding Path="Y"/>
+                                                        <Binding Path="Width"/>
+                                                        <Binding Path="Height"/>
+                                                        <Binding Path="RotationDegrees"/>
+                                                        <Binding Path="Type"/>
+                                                        <Binding Path="FontSize"/>
+                                                        <Binding Path="Content"/>
+                                                    </MultiBinding>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Setter Property="Canvas.Top">
+                                                <Setter.Value>
+                                                    <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="VisualTop">
+                                                        <Binding Path="X"/>
+                                                        <Binding Path="Y"/>
+                                                        <Binding Path="Width"/>
+                                                        <Binding Path="Height"/>
+                                                        <Binding Path="RotationDegrees"/>
+                                                        <Binding Path="Type"/>
+                                                        <Binding Path="FontSize"/>
+                                                        <Binding Path="Content"/>
+                                                    </MultiBinding>
+                                                </Setter.Value>
+                                            </Setter>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
 
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Thumb DragDelta="Thumb_DragDelta" MouseDown="Thumb_MouseDown" Tag="{Binding}"
-                                                   Width="{Binding Width}"
-                                                   MinWidth="20" MinHeight="15">
+                                                   MinWidth="20" MinHeight="10"
+                                                   Cursor="SizeAll">
+                                                <Thumb.Width>
+                                                    <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="VisualWidth">
+                                                        <Binding Path="X"/>
+                                                        <Binding Path="Y"/>
+                                                        <Binding Path="Width"/>
+                                                        <Binding Path="Height"/>
+                                                        <Binding Path="RotationDegrees"/>
+                                                        <Binding Path="Type"/>
+                                                        <Binding Path="FontSize"/>
+                                                        <Binding Path="Content"/>
+                                                    </MultiBinding>
+                                                </Thumb.Width>
+                                                <Thumb.Height>
+                                                    <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="VisualHeight">
+                                                        <Binding Path="X"/>
+                                                        <Binding Path="Y"/>
+                                                        <Binding Path="Width"/>
+                                                        <Binding Path="Height"/>
+                                                        <Binding Path="RotationDegrees"/>
+                                                        <Binding Path="Type"/>
+                                                        <Binding Path="FontSize"/>
+                                                        <Binding Path="Content"/>
+                                                    </MultiBinding>
+                                                </Thumb.Height>
                                                 <Thumb.Template>
-                                                    <ControlTemplate>
-                                                        <Grid>
-                                                            <!-- Content Layer -->
-                                                            <Grid RenderTransformOrigin="0.5,0.5">
+                                                    <ControlTemplate TargetType="{x:Type Thumb}">
+                                                        <Grid Width="{TemplateBinding Width}"
+                                                              Height="{TemplateBinding Height}"
+                                                              Background="Transparent">
+                                                            <Grid.Resources>
+                                                                <Style x:Key="SelectionChromeStyle" TargetType="{x:Type FrameworkElement}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                                <Style x:Key="ResizeHandleStyle" TargetType="{x:Type Thumb}">
+                                                                    <Setter Property="Width" Value="8"/>
+                                                                    <Setter Property="Height" Value="8"/>
+                                                                    <Setter Property="Background" Value="White"/>
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                                    <Setter Property="BorderThickness" Value="2"/>
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Setter Property="Template">
+                                                                        <Setter.Value>
+                                                                            <ControlTemplate TargetType="{x:Type Thumb}">
+                                                                                <Border Background="{TemplateBinding Background}"
+                                                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                                                        SnapsToDevicePixels="True"/>
+                                                                            </ControlTemplate>
+                                                                        </Setter.Value>
+                                                                    </Setter>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Grid.Resources>
+
+                                                            <Grid
+                                                                  HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"
+                                                                  RenderTransformOrigin="0.5,0.5">
+                                                                <Grid.Width>
+                                                                    <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="LocalWidth">
+                                                                        <Binding Path="X"/>
+                                                                        <Binding Path="Y"/>
+                                                                        <Binding Path="Width"/>
+                                                                        <Binding Path="Height"/>
+                                                                        <Binding Path="RotationDegrees"/>
+                                                                        <Binding Path="Type"/>
+                                                                        <Binding Path="FontSize"/>
+                                                                        <Binding Path="Content"/>
+                                                                    </MultiBinding>
+                                                                </Grid.Width>
+                                                                <Grid.Height>
+                                                                    <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="LocalHeight">
+                                                                        <Binding Path="X"/>
+                                                                        <Binding Path="Y"/>
+                                                                        <Binding Path="Width"/>
+                                                                        <Binding Path="Height"/>
+                                                                        <Binding Path="RotationDegrees"/>
+                                                                        <Binding Path="Type"/>
+                                                                        <Binding Path="FontSize"/>
+                                                                        <Binding Path="Content"/>
+                                                                    </MultiBinding>
+                                                                </Grid.Height>
                                                                 <Grid.RenderTransform>
                                                                     <RotateTransform Angle="{Binding RotationDegrees}"/>
                                                                 </Grid.RenderTransform>
-                                                                <!-- Text Element -->
-                                                                <TextBlock Text="{Binding Content}"
-                                                                           FontSize="{Binding FontSize, Converter={StaticResource FontScaleConverter}}"
-                                                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                                                           FontWeight="{Binding IsBold, Converter={StaticResource BoolToFontWeightConverter}}"
-                                                                           Width="{Binding Width}"
-                                                                           Height="{Binding Height, Converter={StaticResource ZeroToAutoLengthConverter}}"
-                                                                           TextWrapping="Wrap"
-                                                                           Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Text}">
-                                                                    <TextBlock.Style>
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Setter Property="TextAlignment" Value="Left"/>
+
+                                                                <!-- Content Layer -->
+                                                                <Grid>
+                                                                    <!-- Text Element -->
+                                                                    <TextBlock Text="{Binding Content}"
+                                                                               FontSize="{Binding FontSize, Converter={StaticResource FontScaleConverter}}"
+                                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                                               FontWeight="{Binding IsBold, Converter={StaticResource BoolToFontWeightConverter}}"
+                                                                               TextWrapping="Wrap"
+                                                                               Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Text}">
+                                                                        <TextBlock.Width>
+                                                                            <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="LocalWidth">
+                                                                                <Binding Path="X"/>
+                                                                                <Binding Path="Y"/>
+                                                                                <Binding Path="Width"/>
+                                                                                <Binding Path="Height"/>
+                                                                                <Binding Path="RotationDegrees"/>
+                                                                                <Binding Path="Type"/>
+                                                                                <Binding Path="FontSize"/>
+                                                                                <Binding Path="Content"/>
+                                                                            </MultiBinding>
+                                                                        </TextBlock.Width>
+                                                                        <TextBlock.Height>
+                                                                            <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="LocalHeight">
+                                                                                <Binding Path="X"/>
+                                                                                <Binding Path="Y"/>
+                                                                                <Binding Path="Width"/>
+                                                                                <Binding Path="Height"/>
+                                                                                <Binding Path="RotationDegrees"/>
+                                                                                <Binding Path="Type"/>
+                                                                                <Binding Path="FontSize"/>
+                                                                                <Binding Path="Content"/>
+                                                                            </MultiBinding>
+                                                                        </TextBlock.Height>
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="TextAlignment" Value="Left"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsCentered}" Value="True">
+                                                                                        <Setter Property="TextAlignment" Value="Center"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+
+                                                                    <!-- Barcode Element -->
+                                                                    <Border Width="{Binding Width}"
+                                                                            Height="{Binding Height}"
+                                                                            Background="Transparent"
+                                                                            Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Barcode}">
+                                                                        <Image Stretch="Uniform"
+                                                                               HorizontalAlignment="Left"
+                                                                               VerticalAlignment="Center">
+                                                                            <Image.Source>
+                                                                                <MultiBinding Converter="{StaticResource BarcodeToImageConverter}">
+                                                                                    <Binding Path="Content"/>
+                                                                                    <Binding Path="Width"/>
+                                                                                    <Binding Path="Height"/>
+                                                                                    <Binding Path="DataContext.PrinterDpi" RelativeSource="{RelativeSource AncestorType=UserControl}"/>
+                                                                                    <Binding Path="IsCentered"/>
+                                                                                </MultiBinding>
+                                                                            </Image.Source>
+                                                                        </Image>
+                                                                    </Border>
+
+                                                                    <!-- QR Code Element -->
+                                                                    <Border Width="{Binding Width}"
+                                                                            Height="{Binding Height}"
+                                                                            Background="Transparent"
+                                                                            Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=QRCode}">
+                                                                        <Image Stretch="Uniform"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center">
+                                                                            <Image.Source>
+                                                                                <MultiBinding Converter="{StaticResource QrCodeToImageConverter}">
+                                                                                    <Binding Path="Content"/>
+                                                                                    <Binding Path="Width"/>
+                                                                                    <Binding Path="Height"/>
+                                                                                </MultiBinding>
+                                                                            </Image.Source>
+                                                                        </Image>
+                                                                    </Border>
+
+                                                                    <!-- Image Element -->
+                                                                    <Border Width="{Binding Width}"
+                                                                            Height="{Binding Height}"
+                                                                            Background="Transparent"
+                                                                            Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Image}">
+                                                                        <Image Source="{Binding ImageDataBase64, Converter={StaticResource Base64ImageToImageSourceConverter}}"
+                                                                               Stretch="Uniform"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"/>
+                                                                    </Border>
+                                                                </Grid>
+
+                                                                <!-- Selection Border -->
+                                                                <Border BorderThickness="2"
+                                                                        Background="Transparent"
+                                                                        IsHitTestVisible="False"
+                                                                        CornerRadius="3">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                                            <Setter Property="Effect" Value="{x:Null}"/>
                                                                             <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding IsCentered}" Value="True">
-                                                                                    <Setter Property="TextAlignment" Value="Center"/>
+                                                                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                                    <Setter Property="BorderBrush">
+                                                                                        <Setter.Value>
+                                                                                            <SolidColorBrush Color="#0078D4" Opacity="0.4"/>
+                                                                                        </Setter.Value>
+                                                                                    </Setter>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                                                    <Setter Property="Effect">
+                                                                                        <Setter.Value>
+                                                                                            <DropShadowEffect Color="#0078D4" Opacity="0.5" BlurRadius="10" ShadowDepth="0"/>
+                                                                                        </Setter.Value>
+                                                                                    </Setter>
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>
-                                                                    </TextBlock.Style>
-                                                                </TextBlock>
-
-                                                                <!-- Barcode Element -->
-                                                                <Border Width="{Binding Width}"
-                                                                        Height="{Binding Height}"
-                                                                        Background="Transparent"
-                                                                        Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Barcode}">
-                                                                    <Image Stretch="Uniform"
-                                                                           HorizontalAlignment="Left"
-                                                                           VerticalAlignment="Center">
-                                                                        <Image.Source>
-                                                                            <MultiBinding Converter="{StaticResource BarcodeToImageConverter}">
-                                                                                <Binding Path="Content"/>
-                                                                                <Binding Path="Width"/>
-                                                                                <Binding Path="Height"/>
-                                                                                <Binding Path="DataContext.PrinterDpi" RelativeSource="{RelativeSource AncestorType=UserControl}"/>
-                                                                                <Binding Path="IsCentered"/>
-                                                                            </MultiBinding>
-                                                                        </Image.Source>
-                                                                    </Image>
+                                                                    </Border.Style>
                                                                 </Border>
 
-                                                                <!-- QR Code Element -->
-                                                                <Border Width="{Binding Width}"
-                                                                        Height="{Binding Height}"
-                                                                        Background="Transparent"
-                                                                        Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=QRCode}">
-                                                                    <Image Stretch="Uniform"
-                                                                           HorizontalAlignment="Center"
-                                                                           VerticalAlignment="Center">
-                                                                        <Image.Source>
-                                                                            <MultiBinding Converter="{StaticResource QrCodeToImageConverter}">
-                                                                                <Binding Path="Content"/>
-                                                                                <Binding Path="Width"/>
-                                                                                <Binding Path="Height"/>
-                                                                            </MultiBinding>
-                                                                        </Image.Source>
-                                                                    </Image>
-                                                                </Border>
-
-                                                                <!-- Image Element -->
-                                                                <Border Width="{Binding Width}"
-                                                                        Height="{Binding Height}"
-                                                                        Background="Transparent"
-                                                                        Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Image}">
-                                                                    <Image Source="{Binding ImageDataBase64, Converter={StaticResource Base64ImageToImageSourceConverter}}"
-                                                                           Stretch="Uniform"
-                                                                           HorizontalAlignment="Center"
-                                                                           VerticalAlignment="Center"/>
-                                                                </Border>
                                                             </Grid>
 
-                                                            <!-- Selection Overlay (Sibling) -->
-                                                            <Border x:Name="SelectionBorder"
-                                                                    BorderThickness="2"
-                                                                    Background="Transparent"
-                                                                    IsHitTestVisible="False"
-                                                                    CornerRadius="3">
-                                                                <Border.Style>
-                                                                    <Style TargetType="Border">
-                                                                        <Setter Property="BorderBrush" Value="Transparent"/>
-                                                                        <Setter Property="Effect" Value="{x:Null}"/>
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
-                                                                                <Setter Property="BorderBrush">
-                                                                                    <Setter.Value>
-                                                                                        <SolidColorBrush Color="#0078D4" Opacity="0.4"/>
-                                                                                    </Setter.Value>
-                                                                                </Setter>
-                                                                            </DataTrigger>
-                                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                                                                                <Setter Property="BorderThickness" Value="2"/>
-                                                                                <Setter Property="Effect">
-                                                                                    <Setter.Value>
-                                                                                        <DropShadowEffect Color="#0078D4" Opacity="0.5" BlurRadius="12" ShadowDepth="0"/>
-                                                                                    </Setter.Value>
-                                                                                </Setter>
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </Border.Style>
-                                                            </Border>
+                                                            <!-- Screen-space chrome handles placed on the rotated frame points -->
+                                                            <Canvas Style="{StaticResource SelectionChromeStyle}">
+                                                                <Ellipse Width="10" Height="10"
+                                                                         Fill="{StaticResource AccentBrush}"
+                                                                         Stroke="White"
+                                                                         StrokeThickness="1"
+                                                                         IsHitTestVisible="False">
+                                                                    <Canvas.Left>
+                                                                        <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="RotateMarker.Left">
+                                                                            <Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/>
+                                                                            <Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/>
+                                                                        </MultiBinding>
+                                                                    </Canvas.Left>
+                                                                    <Canvas.Top>
+                                                                        <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="RotateMarker.Top">
+                                                                            <Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/>
+                                                                            <Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/>
+                                                                        </MultiBinding>
+                                                                    </Canvas.Top>
+                                                                </Ellipse>
+
+                                                                <Thumb Tag="TopLeft" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeNWSE">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="TopLeft.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="TopLeft.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                                <Thumb Tag="Top" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeNS">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Top.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Top.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                                <Thumb Tag="TopRight" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeNESW">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="TopRight.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="TopRight.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                                <Thumb Tag="Left" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeWE">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Left.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Left.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                                <Thumb Tag="Right" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeWE">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Right.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Right.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                                <Thumb Tag="BottomLeft" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeNESW">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="BottomLeft.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="BottomLeft.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                                <Thumb Tag="Bottom" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeNS">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Bottom.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="Bottom.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                                <Thumb Tag="BottomRight" Style="{StaticResource ResizeHandleStyle}" DragStarted="ResizeHandle_DragStarted" DragDelta="ResizeHandle_DragDelta" DragCompleted="ResizeHandle_DragCompleted" Cursor="SizeNWSE">
+                                                                    <Canvas.Left><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="BottomRight.Left"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Left>
+                                                                    <Canvas.Top><MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="BottomRight.Top"><Binding Path="X"/><Binding Path="Y"/><Binding Path="Width"/><Binding Path="Height"/><Binding Path="RotationDegrees"/><Binding Path="Type"/><Binding Path="FontSize"/><Binding Path="Content"/></MultiBinding></Canvas.Top>
+                                                                </Thumb>
+                                                            </Canvas>
                                                         </Grid>
                                                     </ControlTemplate>
                                                 </Thumb.Template>

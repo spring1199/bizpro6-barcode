@@ -32,6 +32,9 @@ namespace BarTenderClone.Models
         [ObservableProperty]
         private MediaType _mediaType = MediaType.ThermalTransfer; // Default to Thermal Transfer
 
+        [ObservableProperty]
+        private PrintRenderMode _renderMode = PrintRenderMode.WysiwygRaster;
+
         /// <summary>
         /// Generates ZPL initialization commands based on current configuration
         /// </summary>
@@ -87,6 +90,12 @@ namespace BarTenderClone.Models
         /// Thermal Transfer - Uses ribbon to transfer ink onto labels
         /// </summary>
         ThermalTransfer
+    }
+
+    public enum PrintRenderMode
+    {
+        WysiwygRaster,
+        LegacyNativeZpl
     }
 
     /// <summary>

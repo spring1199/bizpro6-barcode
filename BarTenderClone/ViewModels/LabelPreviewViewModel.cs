@@ -722,59 +722,100 @@ namespace BarTenderClone.ViewModels
             const double LINE_SPACING_MM = 1.0;   // ~1mm between lines
             const double SECTION_SPACING_MM = 2.0; // ~2mm between sections
 
-            // Convert mm to screen pixels for UI display
-            double codeFontPx = LabelSizeHelper.MmToScreenPixels(CODE_FONT_MM);
-            double nameFontPx = LabelSizeHelper.MmToScreenPixels(NAME_FONT_MM);
-            double priceFontPx = LabelSizeHelper.MmToScreenPixels(PRICE_FONT_MM);
-            double barcodeHeightPx = LabelSizeHelper.MmToScreenPixels(BARCODE_HEIGHT_MM);
-            double lineSpacingPx = LabelSizeHelper.MmToScreenPixels(LINE_SPACING_MM);
-            double sectionSpacingPx = LabelSizeHelper.MmToScreenPixels(SECTION_SPACING_MM);
+            var productCode = product.Code ?? "N/A";
+            var productName = product.ProductName ?? "Product";
+            var priceText = $"MNT {product.Price:N0}";
+
+            double codeFontPx;
+            double nameFontPx;
+            double priceFontPx;
+            double barcodeHeightPx;
+            double lineSpacingPx;
+            double sectionSpacingPx;
+            double codeLineHeightPx;
+            double nameLineHeightPx;
+            double priceLineHeightPx;
+
+            var scale = 1.0;
+            var printableHeight = Math.Max(DesignerInteractionHelper.MinElementHeight, Template.Height - margins.top - margins.bottom);
+            var minBarcodeHeightPx = LabelSizeHelper.MmToScreenPixels(5);
+
+            while (true)
+            {
+                codeFontPx = LabelSizeHelper.MmToScreenPixels(CODE_FONT_MM) * scale;
+                nameFontPx = LabelSizeHelper.MmToScreenPixels(NAME_FONT_MM) * scale;
+                priceFontPx = LabelSizeHelper.MmToScreenPixels(PRICE_FONT_MM) * scale;
+                barcodeHeightPx = Math.Max(LabelSizeHelper.MmToScreenPixels(BARCODE_HEIGHT_MM) * scale, minBarcodeHeightPx);
+                lineSpacingPx = LabelSizeHelper.MmToScreenPixels(LINE_SPACING_MM) * scale;
+                sectionSpacingPx = LabelSizeHelper.MmToScreenPixels(SECTION_SPACING_MM) * scale;
+
+                codeLineHeightPx = DesignerInteractionHelper.GetMinimumLineHeight(ElementType.Text, codeFontPx);
+                nameLineHeightPx = EstimateTextLines(productName, availableWidth, nameFontPx, maxLines: 2)
+                    * DesignerInteractionHelper.GetMinimumLineHeight(ElementType.Text, nameFontPx);
+                priceLineHeightPx = DesignerInteractionHelper.GetMinimumLineHeight(ElementType.Text, priceFontPx);
+
+                var requiredHeight = codeLineHeightPx
+                                     + sectionSpacingPx
+                                     + nameLineHeightPx
+                                     + lineSpacingPx
+                                     + priceLineHeightPx
+                                     + sectionSpacingPx
+                                     + barcodeHeightPx;
+
+                if (requiredHeight <= printableHeight || scale <= 0.55)
+                    break;
+
+                scale *= Math.Max(0.55, printableHeight / requiredHeight);
+            }
 
             // === SECTION 1: Product Code ===
             Elements.Add(new LabelElement
             {
                 Type = ElementType.Text,
-                Content = product.Code ?? "N/A",
+                Content = productCode,
                 FieldName = "ItemCode",
                 X = leftMargin,
                 Y = currentY,
                 FontSize = codeFontPx,
-                Width = availableWidth
+                Width = availableWidth,
+                Height = codeLineHeightPx
             });
-            currentY += codeFontPx + sectionSpacingPx;
+            currentY += codeLineHeightPx + sectionSpacingPx;
 
             // === SECTION 2: Product Name ===
             Elements.Add(new LabelElement
             {
                 Type = ElementType.Text,
-                Content = product.ProductName ?? "Product",
+                Content = productName,
                 FieldName = "ProductName",
                 X = leftMargin,
                 Y = currentY,
                 FontSize = nameFontPx,
                 IsBold = false,
-                Width = availableWidth
+                Width = availableWidth,
+                Height = nameLineHeightPx
             });
-            currentY += nameFontPx + lineSpacingPx;
+            currentY += nameLineHeightPx + lineSpacingPx;
 
             // === SECTION 3: Price (Bold) ===
             Elements.Add(new LabelElement
             {
                 Type = ElementType.Text,
-                Content = $"MNT {product.Price:N0}",
+                Content = priceText,
                 X = leftMargin,
                 Y = currentY,
                 FontSize = priceFontPx,
                 IsBold = true,
-                Width = availableWidth
+                Width = availableWidth,
+                Height = priceLineHeightPx
             });
-            currentY += priceFontPx + sectionSpacingPx;
+            currentY += priceLineHeightPx + sectionSpacingPx;
 
             // === SECTION 4: Barcode (Let ZplGeneratorService handle centering) ===
             // Ensure barcode doesn't exceed bottom margin
             double maxBarcodeHeight = Template.Height - currentY - margins.bottom;
             double effectiveHeight = Math.Min(barcodeHeightPx, maxBarcodeHeight);
-            effectiveHeight = Math.Max(effectiveHeight, LabelSizeHelper.MmToScreenPixels(5)); // Min 5mm
+            effectiveHeight = Math.Max(DesignerInteractionHelper.MinElementHeight, effectiveHeight);
 
             Elements.Add(new LabelElement
             {
@@ -787,6 +828,15 @@ namespace BarTenderClone.ViewModels
                 Height = effectiveHeight,
                 IsCentered = true  // ZplGeneratorService will center within Width
             });
+        }
+
+        private static int EstimateTextLines(string text, double width, double fontSize, int maxLines)
+        {
+            var effectiveFontSize = Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR;
+            var averageCharWidth = Math.Max(4, effectiveFontSize * 0.55);
+            var charsPerLine = Math.Max(1, (int)Math.Floor(Math.Max(DesignerInteractionHelper.MinElementWidth, width) / averageCharWidth));
+            var textLength = string.IsNullOrWhiteSpace(text) ? 1 : text.Length;
+            return Math.Clamp((int)Math.Ceiling((double)textLength / charsPerLine), 1, maxLines);
         }
 
         [RelayCommand]

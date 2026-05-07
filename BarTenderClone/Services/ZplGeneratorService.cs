@@ -154,36 +154,45 @@ namespace BarTenderClone.Services
 
 
 
-            // Process each element
-            var margins = LabelSizeHelper.GetSafeMarginsDots(config.Dpi);
-
-            foreach (var element in elements.OrderBy(e => e.Y).ThenBy(e => e.X))
+            var elementList = elements.ToList();
+            if (config.RenderMode == PrintRenderMode.WysiwygRaster)
             {
-                switch (element.Type)
+                var rasterized = LabelRasterRenderService.RenderToZplGraphic(elementList, dataSource, template, config);
+                zpl.AppendLine($"^FO0,0{rasterized.GraphicField}^FS");
+            }
+            else
+            {
+                // Process each element with legacy native ZPL commands.
+                var margins = LabelSizeHelper.GetSafeMarginsDots(config.Dpi);
+
+                foreach (var element in elementList.OrderBy(e => e.Y).ThenBy(e => e.X))
                 {
-                    case ElementType.Text:
-                        zpl.AppendLine(GenerateTextElement(element, dataSource, config.Dpi, config.DefaultFont, margins));
-                        break;
+                    switch (element.Type)
+                    {
+                        case ElementType.Text:
+                            zpl.AppendLine(GenerateTextElement(element, dataSource, config.Dpi, config.DefaultFont, margins));
+                            break;
 
-                    case ElementType.Barcode:
-                        // ALWAYS handle visual barcode here - even if it's the RFID field
-                        zpl.AppendLine(GenerateBarcodeElement(element, dataSource, config.Dpi, margins));
-                        break;
+                        case ElementType.Barcode:
+                            // ALWAYS handle visual barcode here - even if it's the RFID field
+                            zpl.AppendLine(GenerateBarcodeElement(element, dataSource, config.Dpi, margins));
+                            break;
 
-                    case ElementType.QRCode:
-                        zpl.AppendLine(GenerateQrCodeElement(element, dataSource, config.Dpi, margins));
-                        break;
+                        case ElementType.QRCode:
+                            zpl.AppendLine(GenerateQrCodeElement(element, dataSource, config.Dpi, margins));
+                            break;
 
-                    case ElementType.Image:
-                        zpl.AppendLine(GenerateImageElement(element, config.Dpi));
-                        break;
+                        case ElementType.Image:
+                            zpl.AppendLine(GenerateImageElement(element, config.Dpi));
+                            break;
+                    }
                 }
             }
 
             // RFID Encoding (Standard Practice)
             if (rfidConfig != null && rfidConfig.EnableRfidEncoding)
             {
-                var rfidElement = elements.FirstOrDefault(e => e.Type == ElementType.Barcode &&
+                var rfidElement = elementList.FirstOrDefault(e => e.Type == ElementType.Barcode &&
                                                            e.FieldName?.Equals("RFID", StringComparison.OrdinalIgnoreCase) == true);
                 if (rfidElement != null)
                 {

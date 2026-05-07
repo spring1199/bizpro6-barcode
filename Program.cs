@@ -7,6 +7,7 @@ namespace TemplateParityProbe;
 
 internal static class Program
 {
+    [STAThread]
     private static int Main()
     {
         var rawRfid = "0000000000000000B61F05C9";
@@ -77,7 +78,31 @@ internal static class Program
         AssertEqual(displayRfid, LabelFieldValueResolver.ResolveVisualValue(element, item), "visual RFID");
         AssertEqual(rawRfid, LabelFieldValueResolver.ResolveRawValue(element, item), "raw RFID");
 
+        var legacyConfig = new PrinterConfiguration
+        {
+            Dpi = 203,
+            EnableUtf8 = true,
+            RenderMode = PrintRenderMode.LegacyNativeZpl
+        };
+
         var zpl = new ZplGeneratorService().GenerateZplWithRfid(
+            new[] { element, rotatedText, rotatedQr, imageElement },
+            item,
+            new LabelTemplate { Width = 226.77, Height = 151.18 },
+            new RfidConfiguration
+            {
+                EnableRfidEncoding = true,
+                DataFormat = RfidDataFormat.Hexadecimal
+            },
+            legacyConfig);
+
+        AssertContains(zpl, $"^FD{displayRfid}^FS", "visual barcode uses stripped RFID");
+        AssertContains(zpl, $"^FD{rawRfid}^FS", "RFID encoder uses raw RFID");
+        AssertDoesNotContain(zpl, "^FO-", "negative coordinates are clamped before ZPL output");
+        AssertContains(zpl, "^A0R", "text rotation uses ZPL native 90-degree orientation");
+        AssertContains(zpl, "^BQB", "QR rotation uses ZPL native 270-degree orientation");
+        AssertContains(zpl, "^GFA", "image element emits inline ZPL graphic data");
+        var rasterZpl = new ZplGeneratorService().GenerateZplWithRfid(
             new[] { element, rotatedText, rotatedQr, imageElement },
             item,
             new LabelTemplate { Width = 226.77, Height = 151.18 },
@@ -92,12 +117,11 @@ internal static class Program
                 EnableUtf8 = true
             });
 
-        AssertContains(zpl, $"^FD{displayRfid}^FS", "visual barcode uses stripped RFID");
-        AssertContains(zpl, $"^FD{rawRfid}^FS", "RFID encoder uses raw RFID");
-        AssertDoesNotContain(zpl, "^FO-", "negative coordinates are clamped before ZPL output");
-        AssertContains(zpl, "^A0R", "text rotation uses ZPL native 90-degree orientation");
-        AssertContains(zpl, "^BQB", "QR rotation uses ZPL native 270-degree orientation");
-        AssertContains(zpl, "^GFA", "image element emits inline ZPL graphic data");
+        AssertContains(rasterZpl, "^GFA", "default WYSIWYG raster mode emits full-label graphic");
+        AssertDoesNotContain(rasterZpl, "^BC", "default WYSIWYG raster mode does not emit native barcode visual command");
+        AssertContains(rasterZpl, $"^FD{rawRfid}^FS", "RFID encoder remains native in raster mode");
+        AssertContains(rasterZpl, "^PW", "raster mode emits print width");
+        AssertContains(rasterZpl, "^LL", "raster mode emits label length");
         AssertContains(
             LabelImageHelper.GenerateZplGraphic(CreateRectangularProbeImageBase64(), 16, 8, 90),
             "^GFA,16,16,2,",

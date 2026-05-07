@@ -25,6 +25,7 @@
             <converters:FontScaleConverter x:Key="FontScaleConverter"/>
             <converters:PixelToMmConverter x:Key="PixelToMmConverter"/>
             <converters:ZeroToAutoLengthConverter x:Key="ZeroToAutoLengthConverter"/>
+            <converters:DesignerElementGeometryConverter x:Key="DesignerElementGeometryConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
