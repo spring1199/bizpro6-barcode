@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
+using System.Windows.Media;
 using BarTenderClone.Models;
 
 namespace BarTenderClone.Helpers
@@ -10,8 +12,12 @@ namespace BarTenderClone.Helpers
     {
         public const double MinElementWidth = 20;
         public const double MinElementHeight = 10;
+        public const double TextRenderInset = 4;
 
         private const double SnapThresholdScreenPixels = 6;
+        private const double MinTextFontSize = 6;
+        private const double MaxTextFontSize = 72;
+        private const double TextMeasurePaddingFactor = 0.8;
 
         public static Vector RotateVector(Vector vector, double degrees)
         {
@@ -41,10 +47,14 @@ namespace BarTenderClone.Helpers
             double fontSize,
             string? content)
         {
-            var localWidth = Math.Max(width, MinElementWidth);
-            var minimumDisplayHeight = height > 0
-                ? GetMinimumLineHeight(type, fontSize)
-                : GetMinimumDisplayHeight(localWidth, type, fontSize, content);
+            var localWidth = type == ElementType.Text
+                ? Math.Max(Math.Max(width, MinElementWidth), GetMinimumDisplayWidth(type, fontSize, content))
+                : Math.Max(width, MinElementWidth);
+            var minimumDisplayHeight = type == ElementType.Text
+                ? GetMinimumDisplayHeight(localWidth, type, fontSize, content)
+                : height > 0
+                    ? GetMinimumLineHeight(type, fontSize)
+                    : GetMinimumDisplayHeight(localWidth, type, fontSize, content);
             var localHeight = height > 0
                 ? Math.Max(height, minimumDisplayHeight)
                 : minimumDisplayHeight;
@@ -197,6 +207,7 @@ namespace BarTenderClone.Helpers
             double startY,
             double startWidth,
             double startHeight,
+            double startFontSize,
             int startRotationDegrees,
             Vector cumulativeScreenDelta,
             double zoom)
@@ -243,6 +254,14 @@ namespace BarTenderClone.Helpers
             element.Y = visualRect.Top + visualRect.Height / 2 - finalLocal.Height / 2;
             element.Width = finalLocal.Width;
             element.Height = finalLocal.Height;
+
+            if (element.Type == ElementType.Text && handleX != 0 && handleY != 0 && startFontSize > 0)
+            {
+                var widthScale = finalLocal.Width / Math.Max(originalWidth, MinElementWidth);
+                var heightScale = finalLocal.Height / Math.Max(originalHeight, MinElementHeight);
+                var scale = Math.Max(0.01, Math.Min(widthScale, heightScale));
+                element.FontSize = Math.Clamp(startFontSize * scale, MinTextFontSize, MaxTextFontSize);
+            }
         }
 
         private static (double x, double y) SnapPosition(
@@ -497,19 +516,108 @@ namespace BarTenderClone.Helpers
             return Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR * 1.35;
         }
 
+        private static double GetMinimumDisplayWidth(ElementType type, double fontSize, string? content)
+        {
+            if (type != ElementType.Text)
+                return MinElementWidth;
+
+            var measuredWidth = MeasureLongestUnwrappedTextWidth(fontSize, content);
+            return Math.Max(MinElementWidth, measuredWidth);
+        }
+
         private static double GetMinimumDisplayHeight(double width, ElementType type, double fontSize, string? content)
         {
             if (type != ElementType.Text)
                 return MinElementHeight;
 
-            var effectiveFontSize = Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR;
             var lineHeight = GetMinimumLineHeight(type, fontSize);
-            var averageCharWidth = Math.Max(4, effectiveFontSize * 0.55);
-            var charsPerLine = Math.Max(1, (int)Math.Floor(Math.Max(MinElementWidth, width) / averageCharWidth));
-            var textLength = string.IsNullOrWhiteSpace(content) ? 1 : content.Length;
-            var estimatedLines = Math.Clamp((int)Math.Ceiling((double)textLength / charsPerLine), 1, 2);
+            var measuredHeight = MeasureWrappedTextHeight(width, fontSize, content);
 
-            return lineHeight * estimatedLines;
+            return Math.Max(lineHeight, measuredHeight);
+        }
+
+        private static double MeasureWrappedTextHeight(double width, double fontSize, string? content)
+        {
+            var effectiveFontSize = Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR;
+            var safeWidth = Math.Max(MinElementWidth, width);
+            var contentWidth = Math.Max(1, safeWidth - TextRenderInset * 2);
+            var safeContent = string.IsNullOrEmpty(content) ? " " : content;
+
+            try
+            {
+                var formattedText = new FormattedText(
+                    safeContent,
+                    CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(
+                        new FontFamily("Segoe UI"),
+                        FontStyles.Normal,
+                        FontWeights.Bold,
+                        FontStretches.Normal),
+                    effectiveFontSize,
+                    Brushes.Black,
+                    1.0)
+                {
+                    MaxTextWidth = contentWidth,
+                    Trimming = TextTrimming.None
+                };
+
+                return Math.Ceiling(formattedText.Height + GetTextMeasurePadding(effectiveFontSize) + TextRenderInset * 2);
+            }
+            catch
+            {
+                var averageCharWidth = Math.Max(4, effectiveFontSize * 0.55);
+                var charsPerLine = Math.Max(1, (int)Math.Floor(safeWidth / averageCharWidth));
+                var estimatedLines = Math.Max(1, (int)Math.Ceiling((double)safeContent.Length / charsPerLine));
+                return GetMinimumLineHeight(ElementType.Text, fontSize) * estimatedLines;
+            }
+        }
+
+        private static double MeasureLongestUnwrappedTextWidth(double fontSize, string? content)
+        {
+            var effectiveFontSize = Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR;
+            var padding = GetTextMeasurePadding(effectiveFontSize);
+            var safeContent = string.IsNullOrWhiteSpace(content) ? " " : content;
+            var tokens = safeContent
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                .DefaultIfEmpty(safeContent);
+
+            try
+            {
+                var maxWidth = 0.0;
+                foreach (var token in tokens)
+                {
+                    var formattedText = new FormattedText(
+                        token,
+                        CultureInfo.CurrentUICulture,
+                        FlowDirection.LeftToRight,
+                        new Typeface(
+                            new FontFamily("Segoe UI"),
+                            FontStyles.Normal,
+                            FontWeights.Bold,
+                            FontStretches.Normal),
+                        effectiveFontSize,
+                        Brushes.Black,
+                        1.0)
+                    {
+                        Trimming = TextTrimming.None
+                    };
+
+                    maxWidth = Math.Max(maxWidth, formattedText.WidthIncludingTrailingWhitespace);
+                }
+
+                return Math.Ceiling(maxWidth + padding);
+            }
+            catch
+            {
+                var longestTokenLength = tokens.Max(token => token.Length);
+                return Math.Ceiling(longestTokenLength * Math.Max(4, effectiveFontSize * 0.58) + padding);
+            }
+        }
+
+        private static double GetTextMeasurePadding(double effectiveFontSize)
+        {
+            return Math.Max(4, effectiveFontSize * TextMeasurePaddingFactor);
         }
 
         private static int ToSign(double value)

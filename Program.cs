@@ -187,6 +187,195 @@ internal static class Program
         AssertEqual(90, roundTrip.Elements[0].RotationDegrees, "template RotationDegrees roundtrip");
         AssertEqual(imageElement.ImageDataBase64, roundTrip.Elements[0].ImageDataBase64, "template embedded image roundtrip");
 
+        var geometryText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "CCW21-8012b-0001/0520/052",
+            X = 18,
+            Y = 24,
+            Width = 150,
+            Height = 0,
+            FontSize = 9,
+            RotationDegrees = 90
+        };
+        var local = DesignerInteractionHelper.GetLocalSize(geometryText);
+        var visualBounds = DesignerInteractionHelper.GetVisualBounds(geometryText);
+        AssertAlmost(local.Height, visualBounds.Width, "90-degree visual width swaps from local height");
+        AssertAlmost(local.Width, visualBounds.Height, "90-degree visual height swaps from local width");
+        AssertAlmost(geometryText.X + local.Width / 2, visualBounds.Left + visualBounds.Width / 2, "rotation preserves center X");
+        AssertAlmost(geometryText.Y + local.Height / 2, visualBounds.Top + visualBounds.Height / 2, "rotation preserves center Y");
+
+        var explicitShortText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "MNT 395,000",
+            X = 20,
+            Y = 20,
+            Width = 24,
+            Height = 16,
+            FontSize = 12,
+            IsBold = true,
+            RotationDegrees = 90
+        };
+        var explicitShortLocal = DesignerInteractionHelper.GetLocalSize(explicitShortText);
+        AssertTrue(
+            explicitShortLocal.Height > explicitShortText.Height,
+            "explicit-height rotated text expands to measured content height");
+        AssertTrue(
+            explicitShortLocal.Width > explicitShortText.Width,
+            "explicit-width rotated text expands to measured word width");
+
+        var narrowCyrillicText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "Богино ханцуйтай хар цамц",
+            X = 20,
+            Y = 20,
+            Width = 24,
+            Height = 24,
+            FontSize = 6,
+            RotationDegrees = 90
+        };
+        var narrowCyrillicLocal = DesignerInteractionHelper.GetLocalSize(narrowCyrillicText);
+        AssertTrue(
+            narrowCyrillicLocal.Width > narrowCyrillicText.Width,
+            "narrow rotated Cyrillic text expands to longest word width");
+        AssertTrue(
+            narrowCyrillicLocal.Height > narrowCyrillicText.Height,
+            "narrow rotated Cyrillic text expands to wrapped measured height");
+
+        var topLeftAfterRotation = DesignerInteractionHelper.GetChromePoint(
+            geometryText.Width,
+            geometryText.Height,
+            geometryText.RotationDegrees,
+            geometryText.Type,
+            geometryText.FontSize,
+            geometryText.Content,
+            ResizeHandleDirection.TopLeft);
+        AssertAlmost(local.Height, topLeftAfterRotation.X, "90-degree top-left handle maps to right edge of visual bounds");
+        AssertAlmost(0, topLeftAfterRotation.Y, "90-degree top-left handle maps to top edge of visual bounds");
+
+        var visualBefore = DesignerInteractionHelper.GetVisualBounds(geometryText);
+        geometryText.RotationDegrees = 270;
+        var visualAfter = DesignerInteractionHelper.GetVisualBounds(geometryText);
+        AssertAlmost(visualBefore.Left + visualBefore.Width / 2, visualAfter.Left + visualAfter.Width / 2, "rotation change preserves visual center X");
+        AssertAlmost(visualBefore.Top + visualBefore.Height / 2, visualAfter.Top + visualAfter.Height / 2, "rotation change preserves visual center Y");
+
+        var cornerScaledText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "Scale me",
+            X = 10,
+            Y = 10,
+            Width = 100,
+            Height = 30,
+            FontSize = 10
+        };
+        DesignerInteractionHelper.ResizeElementFromSnapshot(
+            cornerScaledText,
+            new LabelTemplate { Width = 300, Height = 200 },
+            ResizeHandleDirection.BottomRight,
+            cornerScaledText.X,
+            cornerScaledText.Y,
+            cornerScaledText.Width,
+            cornerScaledText.Height,
+            cornerScaledText.FontSize,
+            cornerScaledText.RotationDegrees,
+            new System.Windows.Vector(50, 15),
+            1.0);
+        AssertAlmost(15, cornerScaledText.FontSize, "text corner resize scales font size");
+
+        var sideResizedText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "Wrap me",
+            X = 10,
+            Y = 10,
+            Width = 100,
+            Height = 30,
+            FontSize = 10
+        };
+        DesignerInteractionHelper.ResizeElementFromSnapshot(
+            sideResizedText,
+            new LabelTemplate { Width = 300, Height = 200 },
+            ResizeHandleDirection.Right,
+            sideResizedText.X,
+            sideResizedText.Y,
+            sideResizedText.Width,
+            sideResizedText.Height,
+            sideResizedText.FontSize,
+            sideResizedText.RotationDegrees,
+            new System.Windows.Vector(50, 0),
+            1.0);
+        AssertAlmost(10, sideResizedText.FontSize, "text side resize keeps font size");
+
+        var rasterProbe = LabelRasterRenderService.RenderToZplGraphic(
+            new[]
+            {
+                geometryText,
+                new LabelElement
+                {
+                    Type = ElementType.Barcode,
+                    Content = "B61F05C9",
+                    X = 20,
+                    Y = 70,
+                    Width = 120,
+                    Height = 32,
+                    RotationDegrees = 270
+                }
+            },
+            item,
+            new LabelTemplate { Width = 226.77, Height = 151.18 },
+            new PrinterConfiguration { Dpi = 203, EnableUtf8 = true });
+        AssertContains(rasterProbe.GraphicField, "^GFA", "rotated raster probe emits a graphic field");
+        AssertTrue(HasNonWhiteGraphicData(rasterProbe.GraphicField), "rotated raster probe contains non-white pixels");
+
+        var parityTemplate = new LabelTemplate { Width = 226.77, Height = 151.18 };
+        var parityElements = new[] { geometryText, rotatedQr, imageElement };
+        var parityConfig = new PrinterConfiguration { Dpi = 203, EnableUtf8 = true };
+        var designerBitmap = LabelRenderEngine.RenderDesignerBitmap(parityElements, item, parityTemplate, parityConfig);
+        var printBitmap = LabelRenderEngine.RenderPrintBitmap(parityElements, item, parityTemplate, parityConfig);
+        AssertEqual(designerBitmap.WidthDots, printBitmap.WidthDots, "designer and print render widths match without calibration");
+        AssertEqual(designerBitmap.HeightDots, printBitmap.HeightDots, "designer and print render heights match without calibration");
+        AssertTrue(BitmapPixelsEqual(designerBitmap.Bitmap, printBitmap.Bitmap), "designer and print render pixels match without calibration");
+
+        var calibratedPrint = LabelRenderEngine.RenderPrintBitmap(
+            parityElements,
+            item,
+            parityTemplate,
+            new PrinterConfiguration
+            {
+                Dpi = 203,
+                EnableUtf8 = true,
+                CalibrationOffsetXmm = 1.5,
+                CalibrationOffsetYmm = -0.5,
+                CalibrationScaleX = 0.98,
+                CalibrationScaleY = 1.02
+            });
+        AssertEqual(printBitmap.WidthDots, calibratedPrint.WidthDots, "calibration keeps commanded label width stable");
+        AssertEqual(printBitmap.HeightDots, calibratedPrint.HeightDots, "calibration keeps commanded label height stable");
+        AssertContains(calibratedPrint.DiagnosticSummary, "Offset=1.5,-0.5mm", "calibration diagnostic includes offsets");
+        AssertContains(calibratedPrint.DiagnosticSummary, "Scale=0.98,1.02", "calibration diagnostic includes scale");
+
+        var rotatedPrint = LabelRenderEngine.RenderPrintBitmap(
+            parityElements,
+            item,
+            parityTemplate,
+            new PrinterConfiguration
+            {
+                Dpi = 203,
+                EnableUtf8 = true,
+                PrintRotationDegrees = 90
+            });
+        AssertEqual(printBitmap.HeightDots, rotatedPrint.WidthDots, "whole-label 90 rotation swaps raster width");
+        AssertEqual(printBitmap.WidthDots, rotatedPrint.HeightDots, "whole-label 90 rotation swaps raster height");
+
+        var calibrationProbe = LabelRasterRenderService.RenderCalibrationToZplGraphic(
+            parityTemplate,
+            new PrinterConfiguration { Dpi = 203, EnableUtf8 = true });
+        AssertContains(calibrationProbe.GraphicField, "^GFA", "calibration label emits a graphic field");
+        AssertTrue(HasNonWhiteGraphicData(calibrationProbe.GraphicField), "calibration label contains non-white pixels");
+
         Console.WriteLine("Template parity probe passed.");
         return 0;
     }
@@ -220,6 +409,18 @@ internal static class Program
             throw new InvalidOperationException($"{name}: expected '{expected}', got '{actual}'.");
     }
 
+    private static void AssertAlmost(double expected, double actual, string name, double tolerance = 0.75)
+    {
+        if (Math.Abs(expected - actual) > tolerance)
+            throw new InvalidOperationException($"{name}: expected '{expected:N2}', got '{actual:N2}'.");
+    }
+
+    private static void AssertTrue(bool condition, string name)
+    {
+        if (!condition)
+            throw new InvalidOperationException($"{name}: expected true.");
+    }
+
     private static void AssertContains(string text, string expected, string name)
     {
         if (!text.Contains(expected, StringComparison.Ordinal))
@@ -230,5 +431,29 @@ internal static class Program
     {
         if (text.Contains(unexpected, StringComparison.Ordinal))
             throw new InvalidOperationException($"{name}: generated ZPL contained '{unexpected}'.");
+    }
+
+    private static bool HasNonWhiteGraphicData(string graphicField)
+    {
+        var lastComma = graphicField.LastIndexOf(',');
+        if (lastComma < 0 || lastComma == graphicField.Length - 1)
+            return false;
+
+        return graphicField[(lastComma + 1)..].Any(c => c != '0');
+    }
+
+    private static bool BitmapPixelsEqual(
+        System.Windows.Media.Imaging.BitmapSource expected,
+        System.Windows.Media.Imaging.BitmapSource actual)
+    {
+        if (expected.PixelWidth != actual.PixelWidth || expected.PixelHeight != actual.PixelHeight)
+            return false;
+
+        var stride = expected.PixelWidth * 4;
+        var expectedPixels = new byte[stride * expected.PixelHeight];
+        var actualPixels = new byte[stride * actual.PixelHeight];
+        expected.CopyPixels(expectedPixels, stride, 0);
+        actual.CopyPixels(actualPixels, stride, 0);
+        return expectedPixels.SequenceEqual(actualPixels);
     }
 }

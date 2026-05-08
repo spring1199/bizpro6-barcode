@@ -267,6 +267,29 @@ namespace BarTenderClone.ViewModels
         };
 
         public ObservableCollection<int> AvailableRotationDegrees { get; } = new() { 0, 90, 180, 270 };
+        public ObservableCollection<int> AvailablePrintRotationDegrees { get; } = new() { 0, 90, 180, 270 };
+
+        private bool _isLoadingPrinterCalibration;
+
+        [ObservableProperty]
+        private double _printOffsetXmm;
+
+        [ObservableProperty]
+        private double _printOffsetYmm;
+
+        [ObservableProperty]
+        private double _printScaleX = 1.0;
+
+        [ObservableProperty]
+        private double _printScaleY = 1.0;
+
+        [ObservableProperty]
+        private int _printRotationDegrees;
+
+        public double CalibratedBoundaryLeft => LabelSizeHelper.MmToScreenPixels(PrintOffsetXmm);
+        public double CalibratedBoundaryTop => LabelSizeHelper.MmToScreenPixels(PrintOffsetYmm);
+        public double CalibratedBoundaryWidth => Template.Width * NormalizeCalibrationScale(PrintScaleX);
+        public double CalibratedBoundaryHeight => Template.Height * NormalizeCalibrationScale(PrintScaleY);
 
         // Dynamic field options discovered from loaded products
         public ObservableCollection<ResourceFieldOption> AvailableFields { get; } = new();
@@ -527,6 +550,7 @@ namespace BarTenderClone.ViewModels
              // Notify margin properties that depend on template size
              OnPropertyChanged(nameof(SafeMarginRight));
              OnPropertyChanged(nameof(SafeMarginBottom));
+             NotifyCalibrationBoundaryChanged();
         }
 
         /// <summary>
@@ -603,7 +627,79 @@ namespace BarTenderClone.ViewModels
                 PrinterDpi = newDpi;
                 StatusMessage = $"Auto-detected {newDpi} DPI from printer.";
             }
+
+            LoadPrinterCalibration(value);
         }
+
+        partial void OnPrintOffsetXmmChanged(double value) => OnPrinterCalibrationChanged();
+        partial void OnPrintOffsetYmmChanged(double value) => OnPrinterCalibrationChanged();
+        partial void OnPrintScaleXChanged(double value) => OnPrinterCalibrationChanged();
+        partial void OnPrintScaleYChanged(double value) => OnPrinterCalibrationChanged();
+        partial void OnPrinterDpiChanged(int value) => OnPrinterCalibrationChanged();
+
+        partial void OnPrintRotationDegreesChanged(int value)
+        {
+            var normalized = LabelElement.NormalizeRotationDegrees(value);
+            if (normalized != value)
+            {
+                PrintRotationDegrees = normalized;
+                return;
+            }
+
+            OnPrinterCalibrationChanged();
+        }
+
+        private void LoadPrinterCalibration(string printerName)
+        {
+            _isLoadingPrinterCalibration = true;
+            try
+            {
+                var profile = PrinterCalibrationStore.Get(printerName, PrinterDpi);
+                PrintOffsetXmm = profile.OffsetXmm;
+                PrintOffsetYmm = profile.OffsetYmm;
+                PrintScaleX = NormalizeCalibrationScale(profile.ScaleX);
+                PrintScaleY = NormalizeCalibrationScale(profile.ScaleY);
+                PrintRotationDegrees = LabelElement.NormalizeRotationDegrees(profile.RotationDegrees);
+
+                if (profile.Dpi > 0 && PrinterDpi != profile.Dpi)
+                    PrinterDpi = profile.Dpi;
+            }
+            finally
+            {
+                _isLoadingPrinterCalibration = false;
+                NotifyCalibrationBoundaryChanged();
+            }
+        }
+
+        private void OnPrinterCalibrationChanged()
+        {
+            NotifyCalibrationBoundaryChanged();
+
+            if (_isLoadingPrinterCalibration || string.IsNullOrWhiteSpace(SelectedPrinter))
+                return;
+
+            PrinterCalibrationStore.Save(new PrinterCalibrationProfile
+            {
+                PrinterName = SelectedPrinter,
+                Dpi = PrinterDpi,
+                OffsetXmm = PrintOffsetXmm,
+                OffsetYmm = PrintOffsetYmm,
+                ScaleX = NormalizeCalibrationScale(PrintScaleX),
+                ScaleY = NormalizeCalibrationScale(PrintScaleY),
+                RotationDegrees = LabelElement.NormalizeRotationDegrees(PrintRotationDegrees)
+            });
+        }
+
+        private void NotifyCalibrationBoundaryChanged()
+        {
+            OnPropertyChanged(nameof(CalibratedBoundaryLeft));
+            OnPropertyChanged(nameof(CalibratedBoundaryTop));
+            OnPropertyChanged(nameof(CalibratedBoundaryWidth));
+            OnPropertyChanged(nameof(CalibratedBoundaryHeight));
+        }
+
+        private static double NormalizeCalibrationScale(double value)
+            => value > 0.05 && value < 20 ? value : 1.0;
 
         /// <summary>
         /// Automatically populates the canvas with label elements based on selected product data.
@@ -1616,6 +1712,40 @@ namespace BarTenderClone.ViewModels
         }
 
         [RelayCommand]
+        private void PrintCalibrationLabel()
+        {
+            if (string.IsNullOrEmpty(SelectedPrinter))
+            {
+                StatusMessage = "Please select a printer first.";
+                return;
+            }
+
+            try
+            {
+                var config = CreatePrinterConfiguration();
+                var rasterized = LabelRasterRenderService.RenderCalibrationToZplGraphic(Template, config);
+                var zpl = BuildRasterOnlyZpl(rasterized, config, quantity: 1);
+                var (success, jobId, _) = RawPrinterHelper.SendStringToPrinterWithJobTracking(SelectedPrinter, zpl);
+
+                if (success)
+                {
+                    StatusMessage = $"Calibration label sent (Job {jobId})";
+                    _logger.LogInfo($"Calibration label sent. {rasterized.DiagnosticSummary}");
+                }
+                else
+                {
+                    StatusMessage = "Failed to send calibration label.";
+                    _logger.LogWarning("Failed to send calibration label to spooler.");
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Calibration print error: " + ex.Message;
+                _logger.LogError("Calibration print failed", ex);
+            }
+        }
+
+        [RelayCommand]
         private async Task SwitchToZplModeAsync()
         {
             if (string.IsNullOrEmpty(SelectedPrinter)) return;
@@ -1677,6 +1807,45 @@ namespace BarTenderClone.ViewModels
                 System.Windows.MessageBox.Show($"Direct port test failed:\n\n{ex.Message}\n\nThis usually means the port is locked by the Windows driver.", 
                     "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
+        }
+
+        private PrinterConfiguration CreatePrinterConfiguration()
+        {
+            return new PrinterConfiguration
+            {
+                Dpi = PrinterDpi,
+                EnableUtf8 = true,
+                Darkness = 15,
+                PrintSpeed = 3,
+                MediaType = SelectedMediaType,
+                RenderMode = PrintRenderMode.WysiwygRaster,
+                CalibrationOffsetXmm = PrintOffsetXmm,
+                CalibrationOffsetYmm = PrintOffsetYmm,
+                CalibrationScaleX = NormalizeCalibrationScale(PrintScaleX),
+                CalibrationScaleY = NormalizeCalibrationScale(PrintScaleY),
+                PrintRotationDegrees = LabelElement.NormalizeRotationDegrees(PrintRotationDegrees)
+            };
+        }
+
+        private static string BuildRasterOnlyZpl(RasterizedLabel rasterized, PrinterConfiguration config, int quantity)
+        {
+            var zpl = new StringBuilder();
+            zpl.AppendLine("^XA");
+            if (config.EnableUtf8)
+                zpl.AppendLine("^CI28");
+
+            zpl.AppendLine("^MMT");
+            zpl.AppendLine("^MNA");
+            zpl.AppendLine(config.MediaType == MediaType.ThermalTransfer ? "^MTT" : "^MTD");
+            zpl.AppendLine("^PON");
+            zpl.AppendLine($"^PW{rasterized.WidthDots}");
+            zpl.AppendLine($"^LL{rasterized.HeightDots}");
+            zpl.AppendLine("^LH0,0");
+            zpl.AppendLine($"^FX {rasterized.DiagnosticSummary}");
+            zpl.AppendLine($"^FO0,0{rasterized.GraphicField}^FS");
+            zpl.AppendLine($"^PQ{quantity}");
+            zpl.AppendLine("^XZ");
+            return zpl.ToString();
         }
 
         [RelayCommand]
@@ -1845,14 +2014,7 @@ namespace BarTenderClone.ViewModels
                 MaxParallelLabels = 1 // Sequential for safety
             };
 
-            var printerConfig = new PrinterConfiguration
-            {
-                Dpi = PrinterDpi,
-                EnableUtf8 = true,
-                Darkness = 15,
-                PrintSpeed = 3,
-                MediaType = SelectedMediaType
-            };
+            var printerConfig = CreatePrinterConfiguration();
 
             var result = await _printService.PrintLabelWithRfidAsync(
                 Elements,
@@ -2061,14 +2223,7 @@ namespace BarTenderClone.ViewModels
                 MaxParallelLabels = 1
             };
 
-            var printerConfig = new PrinterConfiguration
-            {
-                Dpi = PrinterDpi,
-                EnableUtf8 = true,
-                Darkness = 15,
-                PrintSpeed = 3,
-                MediaType = SelectedMediaType
-            };
+            var printerConfig = CreatePrinterConfiguration();
 
             var batchResult = await _printService.PrintBatchWithRfidAsync(
                 Elements,

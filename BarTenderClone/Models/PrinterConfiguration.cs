@@ -35,6 +35,30 @@ namespace BarTenderClone.Models
         [ObservableProperty]
         private PrintRenderMode _renderMode = PrintRenderMode.WysiwygRaster;
 
+        [ObservableProperty]
+        private double _calibrationOffsetXmm;
+
+        [ObservableProperty]
+        private double _calibrationOffsetYmm;
+
+        [ObservableProperty]
+        private double _calibrationScaleX = 1.0;
+
+        [ObservableProperty]
+        private double _calibrationScaleY = 1.0;
+
+        [ObservableProperty]
+        private int _printRotationDegrees;
+
+        partial void OnPrintRotationDegreesChanged(int value)
+        {
+            var normalized = LabelElement.NormalizeRotationDegrees(value);
+            if (normalized != value)
+            {
+                PrintRotationDegrees = normalized;
+            }
+        }
+
         /// <summary>
         /// Generates ZPL initialization commands based on current configuration
         /// </summary>

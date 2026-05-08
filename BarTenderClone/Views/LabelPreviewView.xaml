@@ -484,8 +484,6 @@
                                     Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0"/>
                             <Button Content="Clear" Command="{Binding ClearCanvasCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,12,0"/>
-
-
                         </StackPanel>
 
                         <!-- Row 2: Auto-populate -->
@@ -508,6 +506,39 @@
                                        VerticalAlignment="Center" Margin="12,0,0,0"
                                        ToolTip="Unsaved changes"
                                        Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisConverter}}"/>
+
+                            <Separator Style="{StaticResource VerticalSeparatorStyle}" Margin="12,0"/>
+                            <TextBlock Text="Print Cal:" Style="{StaticResource BodyTextStyle}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"
+                                       ToolTip="Final bitmap calibration: offset mm, scale, and whole-label rotation"/>
+                            <TextBlock Text="X" Style="{StaticResource BodyTextStyle}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBox Text="{Binding PrintOffsetXmm, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="42" Height="32" Padding="6,6" FontSize="12"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                     ui:ControlHelper.CornerRadius="4" ToolTip="Print offset X in millimeters"/>
+                            <TextBlock Text="Y" Style="{StaticResource BodyTextStyle}" VerticalAlignment="Center" Margin="6,0,4,0"/>
+                            <TextBox Text="{Binding PrintOffsetYmm, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="42" Height="32" Padding="6,6" FontSize="12"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                     ui:ControlHelper.CornerRadius="4" ToolTip="Print offset Y in millimeters"/>
+                            <TextBlock Text="Sx" Style="{StaticResource BodyTextStyle}" VerticalAlignment="Center" Margin="6,0,4,0"/>
+                            <TextBox Text="{Binding PrintScaleX, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="45" Height="32" Padding="6,6" FontSize="12"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                     ui:ControlHelper.CornerRadius="4" ToolTip="Print scale X, 1.0 is unchanged"/>
+                            <TextBlock Text="Sy" Style="{StaticResource BodyTextStyle}" VerticalAlignment="Center" Margin="6,0,4,0"/>
+                            <TextBox Text="{Binding PrintScaleY, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="45" Height="32" Padding="6,6" FontSize="12"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                     ui:ControlHelper.CornerRadius="4" ToolTip="Print scale Y, 1.0 is unchanged"/>
+                            <TextBlock Text="Rot" Style="{StaticResource BodyTextStyle}" VerticalAlignment="Center" Margin="6,0,4,0"/>
+                            <ComboBox ItemsSource="{Binding AvailablePrintRotationDegrees}"
+                                      SelectedItem="{Binding PrintRotationDegrees, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Style="{StaticResource ModernComboBoxStyle}"
+                                      Width="64" Height="32" ToolTip="Whole-label print rotation"/>
+                            <Button Content="Cal Test" Command="{Binding PrintCalibrationLabelCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}" Margin="6,0,0,0"
+                                    ToolTip="Print border/cross/tick calibration label"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -557,6 +588,14 @@
                                         <Line X1="0" Y1="{Binding SafeMarginBottom}"
                                               X2="{Binding Template.Width}" Y2="{Binding SafeMarginBottom}"
                                               Stroke="#CCCCCC" StrokeThickness="1" StrokeDashArray="4 2" Opacity="0.7"/>
+                                        <Rectangle Canvas.Left="{Binding CalibratedBoundaryLeft}"
+                                                   Canvas.Top="{Binding CalibratedBoundaryTop}"
+                                                   Width="{Binding CalibratedBoundaryWidth}"
+                                                   Height="{Binding CalibratedBoundaryHeight}"
+                                                   Stroke="#D32F2F"
+                                                   StrokeThickness="1"
+                                                   StrokeDashArray="2 2"
+                                                   Opacity="0.75"/>
                                     </Canvas>
 
                                     <!-- Content Layer -->
@@ -707,32 +746,9 @@
                                                                                FontSize="{Binding FontSize, Converter={StaticResource FontScaleConverter}}"
                                                                                Foreground="{StaticResource TextPrimaryBrush}"
                                                                                FontWeight="{Binding IsBold, Converter={StaticResource BoolToFontWeightConverter}}"
+                                                                               Margin="4"
                                                                                TextWrapping="Wrap"
                                                                                Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Text}">
-                                                                        <TextBlock.Width>
-                                                                            <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="LocalWidth">
-                                                                                <Binding Path="X"/>
-                                                                                <Binding Path="Y"/>
-                                                                                <Binding Path="Width"/>
-                                                                                <Binding Path="Height"/>
-                                                                                <Binding Path="RotationDegrees"/>
-                                                                                <Binding Path="Type"/>
-                                                                                <Binding Path="FontSize"/>
-                                                                                <Binding Path="Content"/>
-                                                                            </MultiBinding>
-                                                                        </TextBlock.Width>
-                                                                        <TextBlock.Height>
-                                                                            <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="LocalHeight">
-                                                                                <Binding Path="X"/>
-                                                                                <Binding Path="Y"/>
-                                                                                <Binding Path="Width"/>
-                                                                                <Binding Path="Height"/>
-                                                                                <Binding Path="RotationDegrees"/>
-                                                                                <Binding Path="Type"/>
-                                                                                <Binding Path="FontSize"/>
-                                                                                <Binding Path="Content"/>
-                                                                            </MultiBinding>
-                                                                        </TextBlock.Height>
                                                                         <TextBlock.Style>
                                                                             <Style TargetType="TextBlock">
                                                                                 <Setter Property="TextAlignment" Value="Left"/>

@@ -55,7 +55,9 @@ namespace BarTenderClone.Converters
                     Math.Round(LabelSizeHelper.MmToScreenPixels(5)));
 
                 var layout = LabelSizeHelper.CalculateCode128Layout(content, elementWidth, printerDpi);
-                double barcodeWidth = Math.Max(1, Math.Min(layout.ActualWidthPixels, elementWidth));
+                double barcodeWidth = Math.Max(
+                    layout.ActualWidthPixels,
+                    LabelSizeHelper.CalculateCode128Width(content, printerDpi));
                 var barcodeSource = CreateBarcodeImage(content, barcodeWidth, height);
 
                 // Create visual
@@ -95,25 +97,45 @@ namespace BarTenderClone.Converters
                 Alignment = AlignmentPositions.Left
             };
 
-            using SKImage image = barcode.Encode(
-                BarcodeType.Code128,
-                content,
-                SKColors.Black,
-                SKColors.White,
-                (int)Math.Max(Math.Round(width), 1),
-                height);
+            var targetWidth = (int)Math.Max(Math.Round(width), 1);
+            var targetHeight = Math.Max(height, 1);
+            SKImage? image = null;
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    image = barcode.Encode(
+                        BarcodeType.Code128,
+                        content,
+                        SKColors.Black,
+                        SKColors.White,
+                        targetWidth,
+                        targetHeight);
+                    break;
+                }
+                catch when (attempt < 4)
+                {
+                    targetWidth *= 2;
+                }
+            }
 
-            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using var stream = data.AsStream();
+            if (image == null)
+                throw new InvalidOperationException("Failed to render Code 128 barcode.");
 
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.StreamSource = stream;
-            bitmap.EndInit();
-            bitmap.Freeze();
+            using (image)
+            {
+                using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
+                using var stream = data.AsStream();
 
-            return bitmap;
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = stream;
+                bitmap.EndInit();
+                bitmap.Freeze();
+
+                return bitmap;
+            }
         }
     }
 }

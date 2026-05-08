@@ -90,6 +90,7 @@ namespace BarTenderClone.Views
                     element.Y,
                     local.Width,
                     local.Height,
+                    element.FontSize,
                     element.RotationDegrees);
 
                 e.Handled = true;
@@ -116,6 +117,7 @@ namespace BarTenderClone.Views
                         element.Y,
                         local.Width,
                         local.Height,
+                        element.FontSize,
                         element.RotationDegrees);
                 }
 
@@ -129,6 +131,7 @@ namespace BarTenderClone.Views
                     _resizeDragState.StartY,
                     _resizeDragState.StartWidth,
                     _resizeDragState.StartHeight,
+                    _resizeDragState.StartFontSize,
                     _resizeDragState.StartRotationDegrees,
                     _resizeDragState.CumulativeDelta,
                     viewModel.CurrentZoom);
@@ -313,6 +316,7 @@ namespace BarTenderClone.Views
                 double startY,
                 double startWidth,
                 double startHeight,
+                double startFontSize,
                 int startRotationDegrees)
             {
                 Element = element;
@@ -321,6 +325,7 @@ namespace BarTenderClone.Views
                 StartY = startY;
                 StartWidth = startWidth;
                 StartHeight = startHeight;
+                StartFontSize = startFontSize;
                 StartRotationDegrees = startRotationDegrees;
             }
 
@@ -330,6 +335,7 @@ namespace BarTenderClone.Views
             public double StartY { get; }
             public double StartWidth { get; }
             public double StartHeight { get; }
+            public double StartFontSize { get; }
             public int StartRotationDegrees { get; }
             public Vector CumulativeDelta { get; set; }
         }

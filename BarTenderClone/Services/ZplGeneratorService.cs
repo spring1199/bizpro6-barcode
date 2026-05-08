@@ -143,21 +143,27 @@ namespace BarTenderClone.Services
                 labelHeightDots = ConvertPositionToDots(defaultHeight34mm, config.Dpi);
             }
 
+            var elementList = elements.ToList();
+            RasterizedLabel? rasterized = null;
+            if (config.RenderMode == PrintRenderMode.WysiwygRaster)
+            {
+                rasterized = LabelRasterRenderService.RenderToZplGraphic(elementList, dataSource, template, config);
+                labelWidthDots = rasterized.WidthDots;
+                labelHeightDots = rasterized.HeightDots;
+            }
+
             zpl.AppendLine($"^PW{labelWidthDots}");
             zpl.AppendLine($"^LL{labelHeightDots}");
 
-            // 3. Label Home (^LH) - Global offset to center labels on printer
-            // This shifts ALL content by the specified amount (fixes left-aligned printing)
+            // 3. Label Home (^LH) - hardware offset stays zero for WYSIWYG.
+            // Printer calibration is applied inside the final raster bitmap instead.
             int homeX = LabelSizeHelper.MmToDots(LabelSizeHelper.LABEL_HOME_X_MM, config.Dpi);
             int homeY = LabelSizeHelper.MmToDots(LabelSizeHelper.LABEL_HOME_Y_MM, config.Dpi);
             zpl.AppendLine($"^LH{homeX},{homeY}");
 
-
-
-            var elementList = elements.ToList();
-            if (config.RenderMode == PrintRenderMode.WysiwygRaster)
+            if (rasterized != null)
             {
-                var rasterized = LabelRasterRenderService.RenderToZplGraphic(elementList, dataSource, template, config);
+                zpl.AppendLine($"^FX {rasterized.DiagnosticSummary}");
                 zpl.AppendLine($"^FO0,0{rasterized.GraphicField}^FS");
             }
             else
