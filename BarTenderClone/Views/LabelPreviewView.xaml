@@ -707,11 +707,7 @@
                                                                 </Style>
                                                             </Grid.Resources>
 
-                                                            <Grid
-                                                                  HorizontalAlignment="Center"
-                                                                  VerticalAlignment="Center"
-                                                                  RenderTransformOrigin="0.5,0.5"
-                                                                  ClipToBounds="True">
+                                                            <Grid>
                                                                 <Grid.Width>
                                                                     <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="LocalWidth">
                                                                         <Binding Path="X"/>
@@ -736,9 +732,9 @@
                                                                         <Binding Path="Content"/>
                                                                     </MultiBinding>
                                                                 </Grid.Height>
-                                                                <Grid.RenderTransform>
+                                                                <Grid.LayoutTransform>
                                                                     <RotateTransform Angle="{Binding RotationDegrees}"/>
-                                                                </Grid.RenderTransform>
+                                                                </Grid.LayoutTransform>
 
                                                                 <!-- Content Layer -->
                                                                 <Grid>
@@ -748,7 +744,6 @@
                                                                              StretchDirection="DownOnly"
                                                                              HorizontalAlignment="Stretch"
                                                                              VerticalAlignment="Stretch"
-                                                                             ClipToBounds="True"
                                                                              Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Text}">
                                                                         <TextBlock Text="{Binding Content}"
                                                                                    Foreground="{StaticResource TextPrimaryBrush}"

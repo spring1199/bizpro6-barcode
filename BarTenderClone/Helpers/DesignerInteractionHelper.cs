@@ -321,11 +321,7 @@ namespace BarTenderClone.Helpers
                 wrapText);
         }
 
-        public static bool ShouldWrapText(int rotationDegrees)
-        {
-            var normalized = ((rotationDegrees % 360) + 360) % 360;
-            return normalized is not (90 or 270);
-        }
+        public static bool ShouldWrapText(int rotationDegrees) => true;
 
         public static void MoveElement(
             LabelElement element,
