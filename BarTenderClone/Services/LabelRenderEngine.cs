@@ -161,9 +161,14 @@ namespace BarTenderClone.Services
             if (string.IsNullOrEmpty(content))
                 return;
 
-            var inset = Math.Min(
-                DesignerInteractionHelper.TextRenderInset,
-                Math.Max(0, Math.Min(width, height) / 4));
+            var layout = DesignerInteractionHelper.MeasureTextLayout(
+                width,
+                height,
+                element.FontSize,
+                content,
+                element.IsBold,
+                element.IsCentered,
+                element.RotationDegrees);
             var typeface = new Typeface(
                 new FontFamily("Segoe UI"),
                 FontStyles.Normal,
@@ -174,17 +179,26 @@ namespace BarTenderClone.Services
                 CultureInfo.CurrentUICulture,
                 FlowDirection.LeftToRight,
                 typeface,
-                Math.Max(1, element.FontSize * LabelSizeHelper.FONT_SCALING_FACTOR),
+                layout.FontSize,
                 Brushes.Black,
                 1.0)
             {
-                MaxTextWidth = Math.Max(1, width - inset * 2),
-                MaxTextHeight = Math.Max(1, height - inset * 2),
+                MaxTextHeight = layout.ContentHeight,
                 TextAlignment = element.IsCentered ? TextAlignment.Center : TextAlignment.Left,
                 Trimming = TextTrimming.None
             };
+            if (layout.WrapText)
+            {
+                formattedText.MaxTextWidth = layout.ContentWidth;
+            }
 
-            dc.DrawText(formattedText, new Point(element.X + inset, element.Y + inset));
+            var drawX = element.X + layout.Inset;
+            if (!layout.WrapText && element.IsCentered)
+            {
+                drawX += Math.Max(0, (layout.ContentWidth - layout.MeasuredWidth) / 2);
+            }
+
+            dc.DrawText(formattedText, new Point(drawX, element.Y + layout.Inset));
         }
 
         private static void DrawBarcode(

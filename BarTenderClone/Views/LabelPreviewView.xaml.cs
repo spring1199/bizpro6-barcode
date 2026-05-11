@@ -48,6 +48,7 @@ namespace BarTenderClone.Views
                 thumb.DataContext is LabelElement element &&
                 DataContext is LabelPreviewViewModel viewModel)
             {
+                DesignerInteractionHelper.CommitMeasuredLocalSize(element);
                 DesignerInteractionHelper.MoveElement(
                     element,
                     viewModel.Template,
@@ -72,6 +73,7 @@ namespace BarTenderClone.Views
                 // Select this element
                 element.IsSelected = true;
                 viewModel.SelectedElement = element;
+                DesignerInteractionHelper.ClampElementToTemplate(element, viewModel.Template);
             }
         }
 
@@ -82,6 +84,12 @@ namespace BarTenderClone.Views
                 thumb.Tag is string tag &&
                 Enum.TryParse<ResizeHandleDirection>(tag, out var handle))
             {
+                DesignerInteractionHelper.CommitMeasuredLocalSize(element);
+                if (DataContext is LabelPreviewViewModel viewModel)
+                {
+                    DesignerInteractionHelper.ClampElementToTemplate(element, viewModel.Template);
+                }
+
                 var local = DesignerInteractionHelper.GetLocalSize(element);
                 _resizeDragState = new ResizeDragState(
                     element,

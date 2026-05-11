@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using BarTenderClone.Models;
 
@@ -13,6 +14,7 @@ namespace BarTenderClone.Helpers
         public const double MinElementWidth = 20;
         public const double MinElementHeight = 10;
         public const double TextRenderInset = 4;
+        public const double SelectionChromePadding = 8;
 
         private const double SnapThresholdScreenPixels = 6;
         private const double MinTextFontSize = 6;
@@ -37,7 +39,8 @@ namespace BarTenderClone.Helpers
                 element.Height,
                 element.Type,
                 element.FontSize,
-                element.Content);
+                element.Content,
+                element.RotationDegrees);
         }
 
         public static (double Width, double Height) GetLocalSize(
@@ -45,15 +48,20 @@ namespace BarTenderClone.Helpers
             double height,
             ElementType type,
             double fontSize,
-            string? content)
+            string? content,
+            int rotationDegrees = 0)
         {
-            var localWidth = type == ElementType.Text
-                ? Math.Max(Math.Max(width, MinElementWidth), GetMinimumDisplayWidth(type, fontSize, content))
+            var localWidth = type == ElementType.Text && width <= 0
+                ? ShouldWrapText(rotationDegrees)
+                    ? Math.Max(GetMinimumDisplayWidth(type, fontSize, content), MinElementWidth)
+                    : Math.Max(MeasureFullTextLineWidth(fontSize, content), MinElementWidth)
                 : Math.Max(width, MinElementWidth);
             var minimumDisplayHeight = type == ElementType.Text
-                ? GetMinimumDisplayHeight(localWidth, type, fontSize, content)
+                ? height > 0
+                    ? MinElementHeight
+                    : GetMinimumLineHeight(type, fontSize)
                 : height > 0
-                    ? GetMinimumLineHeight(type, fontSize)
+                    ? MinElementHeight
                     : GetMinimumDisplayHeight(localWidth, type, fontSize, content);
             var localHeight = height > 0
                 ? Math.Max(height, minimumDisplayHeight)
@@ -66,6 +74,59 @@ namespace BarTenderClone.Helpers
         {
             var (width, height) = GetLocalSize(element);
             return GetVisualBounds(element.X, element.Y, width, height, element.RotationDegrees);
+        }
+
+        public static void CommitMeasuredLocalSize(LabelElement element)
+        {
+            var local = GetLocalSize(element);
+            if (Math.Abs(element.Width - local.Width) > 0.01)
+                element.Width = local.Width;
+
+            if (Math.Abs(element.Height - local.Height) > 0.01)
+                element.Height = local.Height;
+        }
+
+        public static void ClampElementToTemplate(LabelElement element, LabelTemplate template, double padding = SelectionChromePadding)
+        {
+            var local = GetLocalSize(element);
+            var bounds = GetVisualBounds(element.X, element.Y, local.Width, local.Height, element.RotationDegrees);
+            var minLeft = Math.Min(padding, Math.Max(0, template.Width - bounds.Width));
+            var minTop = Math.Min(padding, Math.Max(0, template.Height - bounds.Height));
+            var maxRight = Math.Max(minLeft, template.Width - padding);
+            var maxBottom = Math.Max(minTop, template.Height - padding);
+
+            var deltaX = 0.0;
+            var deltaY = 0.0;
+
+            if (bounds.Width + padding * 2 <= template.Width)
+            {
+                if (bounds.Left < minLeft)
+                    deltaX = minLeft - bounds.Left;
+                else if (bounds.Right > maxRight)
+                    deltaX = maxRight - bounds.Right;
+            }
+            else
+            {
+                deltaX = (template.Width - bounds.Width) / 2 - bounds.Left;
+            }
+
+            if (bounds.Height + padding * 2 <= template.Height)
+            {
+                if (bounds.Top < minTop)
+                    deltaY = minTop - bounds.Top;
+                else if (bounds.Bottom > maxBottom)
+                    deltaY = maxBottom - bounds.Bottom;
+            }
+            else
+            {
+                deltaY = (template.Height - bounds.Height) / 2 - bounds.Top;
+            }
+
+            if (Math.Abs(deltaX) > 0.01)
+                element.X += deltaX;
+
+            if (Math.Abs(deltaY) > 0.01)
+                element.Y += deltaY;
         }
 
         public static Rect GetVisualBounds(
@@ -96,7 +157,7 @@ namespace BarTenderClone.Helpers
             double fontSize,
             string? content)
         {
-            var local = GetLocalSize(width, height, type, fontSize, content);
+            var local = GetLocalSize(width, height, type, fontSize, content, rotationDegrees);
             return GetVisualBounds(x, y, local.Width, local.Height, rotationDegrees).Left;
         }
 
@@ -110,7 +171,7 @@ namespace BarTenderClone.Helpers
             double fontSize,
             string? content)
         {
-            var local = GetLocalSize(width, height, type, fontSize, content);
+            var local = GetLocalSize(width, height, type, fontSize, content, rotationDegrees);
             return GetVisualBounds(x, y, local.Width, local.Height, rotationDegrees).Top;
         }
 
@@ -122,7 +183,7 @@ namespace BarTenderClone.Helpers
             double fontSize,
             string? content)
         {
-            var local = GetLocalSize(width, height, type, fontSize, content);
+            var local = GetLocalSize(width, height, type, fontSize, content, rotationDegrees);
             return GetRotatedBounds(local.Width, local.Height, rotationDegrees).Width;
         }
 
@@ -134,7 +195,7 @@ namespace BarTenderClone.Helpers
             double fontSize,
             string? content)
         {
-            var local = GetLocalSize(width, height, type, fontSize, content);
+            var local = GetLocalSize(width, height, type, fontSize, content, rotationDegrees);
             return GetRotatedBounds(local.Width, local.Height, rotationDegrees).Height;
         }
 
@@ -147,7 +208,7 @@ namespace BarTenderClone.Helpers
             string? content,
             ResizeHandleDirection handle)
         {
-            var local = GetLocalSize(width, height, type, fontSize, content);
+            var local = GetLocalSize(width, height, type, fontSize, content, rotationDegrees);
             var bounds = GetRotatedBounds(local.Width, local.Height, rotationDegrees);
             var localPoint = new Vector(
                 GetHandleX(handle) * local.Width / 2,
@@ -168,7 +229,7 @@ namespace BarTenderClone.Helpers
             string? content,
             double offset)
         {
-            var local = GetLocalSize(width, height, type, fontSize, content);
+            var local = GetLocalSize(width, height, type, fontSize, content, rotationDegrees);
             var bounds = GetRotatedBounds(local.Width, local.Height, rotationDegrees);
             var localPoint = new Vector(0, -local.Height / 2);
             var localOutward = new Vector(0, -Math.Max(0, offset));
@@ -177,6 +238,93 @@ namespace BarTenderClone.Helpers
             return new Point(
                 bounds.Width / 2 + rotatedPoint.X,
                 bounds.Height / 2 + rotatedPoint.Y);
+        }
+
+        public static Cursor GetResizeCursor(ResizeHandleDirection handle, int rotationDegrees)
+        {
+            var handleVector = RotateVector(new Vector(GetHandleX(handle), GetHandleY(handle)), rotationDegrees);
+            var x = ToSign(handleVector.X);
+            var y = ToSign(handleVector.Y);
+
+            if (x != 0 && y != 0)
+                return x == y ? Cursors.SizeNWSE : Cursors.SizeNESW;
+
+            if (x != 0)
+                return Cursors.SizeWE;
+
+            return Cursors.SizeNS;
+        }
+
+        public static TextLayoutResult MeasureTextLayout(
+            double width,
+            double height,
+            double fontSize,
+            string? content,
+            bool isBold = false,
+            bool isCentered = false,
+            int rotationDegrees = 0)
+        {
+            var localWidth = Math.Max(width, MinElementWidth);
+            var localHeight = Math.Max(height, MinElementHeight);
+            var inset = Math.Min(TextRenderInset, Math.Max(0, Math.Min(localWidth, localHeight) / 4));
+            var contentWidth = Math.Max(1, localWidth - inset * 2);
+            var contentHeight = Math.Max(1, localHeight - inset * 2);
+            var maxFontSize = Math.Max(1, fontSize * LabelSizeHelper.FONT_SCALING_FACTOR);
+            var minReadableFontSize = Math.Max(1, MinTextFontSize * LabelSizeHelper.FONT_SCALING_FACTOR);
+            var safeContent = string.IsNullOrEmpty(content) ? " " : content;
+            var wrapText = ShouldWrapText(rotationDegrees);
+
+            var best = MeasureText(safeContent, maxFontSize, contentWidth, isBold, isCentered, wrapText);
+            if (TextFits(best, contentWidth, contentHeight))
+            {
+                return new TextLayoutResult(maxFontSize, inset, contentWidth, contentHeight, best.Width, best.Height, true, wrapText);
+            }
+
+            var low = 1.0;
+            var high = maxFontSize;
+            var bestFont = low;
+            TextMeasurement bestMeasurement = MeasureText(safeContent, low, contentWidth, isBold, isCentered, wrapText);
+            for (var i = 0; i < 24; i++)
+            {
+                var mid = (low + high) / 2;
+                var measurement = MeasureText(safeContent, mid, contentWidth, isBold, isCentered, wrapText);
+                if (TextFits(measurement, contentWidth, contentHeight))
+                {
+                    bestFont = mid;
+                    bestMeasurement = measurement;
+                    low = mid;
+                }
+                else
+                {
+                    high = mid;
+                }
+            }
+
+            if (bestFont < minReadableFontSize)
+            {
+                var readableMeasurement = MeasureText(safeContent, minReadableFontSize, contentWidth, isBold, isCentered, wrapText);
+                if (TextFits(readableMeasurement, contentWidth, contentHeight))
+                {
+                    bestFont = minReadableFontSize;
+                    bestMeasurement = readableMeasurement;
+                }
+            }
+
+            return new TextLayoutResult(
+                bestFont,
+                inset,
+                contentWidth,
+                contentHeight,
+                bestMeasurement.Width,
+                bestMeasurement.Height,
+                TextFits(bestMeasurement, contentWidth, contentHeight),
+                wrapText);
+        }
+
+        public static bool ShouldWrapText(int rotationDegrees)
+        {
+            var normalized = ((rotationDegrees % 360) + 360) % 360;
+            return normalized is not (90 or 270);
         }
 
         public static void MoveElement(
@@ -219,49 +367,131 @@ namespace BarTenderClone.Helpers
 
             var originalWidth = Math.Max(startWidth, MinElementWidth);
             var originalHeight = Math.Max(startHeight, MinElementHeight);
+            var candidate = BuildResizeCandidate(
+                element,
+                handleX,
+                handleY,
+                startX,
+                startY,
+                originalWidth,
+                originalHeight,
+                startFontSize,
+                startRotationDegrees,
+                cumulativeScreenDelta);
+
+            if (!IsInsideTemplate(candidate.VisualBounds, template))
+            {
+                var low = 0.0;
+                var high = 1.0;
+                var best = BuildResizeCandidate(
+                    element,
+                    handleX,
+                    handleY,
+                    startX,
+                    startY,
+                    originalWidth,
+                    originalHeight,
+                    startFontSize,
+                    startRotationDegrees,
+                    new Vector());
+
+                for (var i = 0; i < 18; i++)
+                {
+                    var mid = (low + high) / 2;
+                    var probe = BuildResizeCandidate(
+                        element,
+                        handleX,
+                        handleY,
+                        startX,
+                        startY,
+                        originalWidth,
+                        originalHeight,
+                        startFontSize,
+                        startRotationDegrees,
+                        cumulativeScreenDelta * mid);
+
+                    if (IsInsideTemplate(probe.VisualBounds, template))
+                    {
+                        best = probe;
+                        low = mid;
+                    }
+                    else
+                    {
+                        high = mid;
+                    }
+                }
+
+                candidate = best;
+            }
+
+            element.X = candidate.X;
+            element.Y = candidate.Y;
+            element.Width = candidate.Width;
+            element.Height = candidate.Height;
+            element.FontSize = candidate.FontSize;
+        }
+
+        private static ResizeCandidate BuildResizeCandidate(
+            LabelElement element,
+            int handleX,
+            int handleY,
+            double startX,
+            double startY,
+            double originalWidth,
+            double originalHeight,
+            double startFontSize,
+            int startRotationDegrees,
+            Vector cumulativeScreenDelta)
+        {
             var originalCenter = new Point(
                 startX + originalWidth / 2,
                 startY + originalHeight / 2);
-
             var localDelta = RotateVector(cumulativeScreenDelta, -startRotationDegrees);
-            var newWidth = originalWidth;
-            var newHeight = originalHeight;
 
-            if (handleX != 0)
-                newWidth = Math.Max(MinElementWidth, originalWidth + (handleX * localDelta.X));
+            var requestedWidth = handleX == 0
+                ? originalWidth
+                : Math.Max(MinElementWidth, originalWidth + (handleX * localDelta.X));
+            var requestedHeight = handleY == 0
+                ? originalHeight
+                : Math.Max(MinElementHeight, originalHeight + (handleY * localDelta.Y));
 
-            if (handleY != 0)
-                newHeight = Math.Max(MinElementHeight, originalHeight + (handleY * localDelta.Y));
-
-            var widthDelta = newWidth - originalWidth;
-            var heightDelta = newHeight - originalHeight;
-            var localCenterShift = new Vector(
-                handleX == 0 ? 0 : handleX * widthDelta / 2,
-                handleY == 0 ? 0 : handleY * heightDelta / 2);
-            var screenCenterShift = RotateVector(localCenterShift, startRotationDegrees);
-            var newDesignX = originalCenter.X + screenCenterShift.X - newWidth / 2;
-            var newDesignY = originalCenter.Y + screenCenterShift.Y - newHeight / 2;
-            var visualRect = GetVisualBounds(newDesignX, newDesignY, newWidth, newHeight, startRotationDegrees);
-            var visualHandle = RotateVector(new Vector(handleX, handleY), startRotationDegrees);
-            var visualHandleX = ToSign(visualHandle.X);
-            var visualHandleY = ToSign(visualHandle.Y);
-
-            visualRect = SnapResize(visualRect, visualHandleX, visualHandleY, template, zoom, startRotationDegrees);
-            visualRect = ClampResize(visualRect, visualHandleX, visualHandleY, template, startRotationDegrees);
-            var finalLocal = GetLocalSizeFromVisualBounds(visualRect, startRotationDegrees);
-
-            element.X = visualRect.Left + visualRect.Width / 2 - finalLocal.Width / 2;
-            element.Y = visualRect.Top + visualRect.Height / 2 - finalLocal.Height / 2;
-            element.Width = finalLocal.Width;
-            element.Height = finalLocal.Height;
-
+            var fontSize = startFontSize;
             if (element.Type == ElementType.Text && handleX != 0 && handleY != 0 && startFontSize > 0)
             {
-                var widthScale = finalLocal.Width / Math.Max(originalWidth, MinElementWidth);
-                var heightScale = finalLocal.Height / Math.Max(originalHeight, MinElementHeight);
+                var widthScale = requestedWidth / Math.Max(originalWidth, MinElementWidth);
+                var heightScale = requestedHeight / Math.Max(originalHeight, MinElementHeight);
                 var scale = Math.Max(0.01, Math.Min(widthScale, heightScale));
-                element.FontSize = Math.Clamp(startFontSize * scale, MinTextFontSize, MaxTextFontSize);
+                fontSize = Math.Clamp(startFontSize * scale, MinTextFontSize, MaxTextFontSize);
             }
+
+            var finalLocal = GetLocalSize(requestedWidth, requestedHeight, element.Type, fontSize, element.Content);
+            var fixedLocal = new Vector(
+                handleX == 0 ? 0 : -handleX * originalWidth / 2,
+                handleY == 0 ? 0 : -handleY * originalHeight / 2);
+            var activeCenterOffset = new Vector(
+                handleX == 0 ? 0 : handleX * finalLocal.Width / 2,
+                handleY == 0 ? 0 : handleY * finalLocal.Height / 2);
+            var fixedScreen = originalCenter + RotateVector(fixedLocal, startRotationDegrees);
+            var newCenter = fixedScreen + RotateVector(activeCenterOffset, startRotationDegrees);
+            var x = newCenter.X - finalLocal.Width / 2;
+            var y = newCenter.Y - finalLocal.Height / 2;
+
+            return new ResizeCandidate(
+                x,
+                y,
+                finalLocal.Width,
+                finalLocal.Height,
+                fontSize,
+                GetVisualBounds(x, y, finalLocal.Width, finalLocal.Height, startRotationDegrees));
+        }
+
+        private static bool IsInsideTemplate(Rect rect, LabelTemplate template)
+        {
+            const double tolerance = 0.5;
+            return rect.Left >= -tolerance &&
+                   rect.Top >= -tolerance &&
+                   rect.Right <= template.Width + tolerance &&
+                   rect.Bottom <= template.Height + tolerance;
         }
 
         private static (double x, double y) SnapPosition(
@@ -615,6 +845,37 @@ namespace BarTenderClone.Helpers
             }
         }
 
+        private static double MeasureFullTextLineWidth(double fontSize, string? content)
+        {
+            var effectiveFontSize = Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR;
+            var padding = GetTextMeasurePadding(effectiveFontSize);
+            var safeContent = string.IsNullOrWhiteSpace(content) ? " " : content;
+
+            try
+            {
+                var formattedText = new FormattedText(
+                    safeContent,
+                    CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(
+                        new FontFamily("Segoe UI"),
+                        FontStyles.Normal,
+                        FontWeights.Bold,
+                        FontStretches.Normal),
+                    effectiveFontSize,
+                    Brushes.Black,
+                    1.0)
+                {
+                    Trimming = TextTrimming.None
+                };
+                return Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace + padding);
+            }
+            catch
+            {
+                return Math.Ceiling(safeContent.Length * Math.Max(4, effectiveFontSize * 0.55) + padding);
+            }
+        }
+
         private static double GetTextMeasurePadding(double effectiveFontSize)
         {
             return Math.Max(4, effectiveFontSize * TextMeasurePaddingFactor);
@@ -632,7 +893,85 @@ namespace BarTenderClone.Helpers
         }
 
         private sealed record SnapCandidate(double CurrentValue, Func<double, double> ToOrigin);
+
+        private static bool TextFits(TextMeasurement measurement, double contentWidth, double contentHeight)
+        {
+            const double tolerance = 0.75;
+            return measurement.Width <= contentWidth + tolerance &&
+                   measurement.Height <= contentHeight + tolerance;
+        }
+
+        private static TextMeasurement MeasureText(
+            string content,
+            double effectiveFontSize,
+            double maxTextWidth,
+            bool isBold,
+            bool isCentered,
+            bool wrapText)
+        {
+            try
+            {
+                var formattedText = new FormattedText(
+                    content,
+                    CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(
+                        new FontFamily("Segoe UI"),
+                        FontStyles.Normal,
+                        isBold ? FontWeights.Bold : FontWeights.Normal,
+                        FontStretches.Normal),
+                    Math.Max(1, effectiveFontSize),
+                    Brushes.Black,
+                    1.0)
+                {
+                    TextAlignment = isCentered ? TextAlignment.Center : TextAlignment.Left,
+                    Trimming = TextTrimming.None
+                };
+                if (wrapText)
+                {
+                    formattedText.MaxTextWidth = Math.Max(1, maxTextWidth);
+                }
+
+                return new TextMeasurement(
+                    Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace),
+                    Math.Ceiling(formattedText.Height));
+            }
+            catch
+            {
+                var averageCharWidth = Math.Max(1, effectiveFontSize * 0.55);
+                var lines = Math.Max(1, content.Count(c => c == '\n') + 1);
+                if (wrapText)
+                {
+                    var charsPerLine = Math.Max(1, (int)Math.Floor(Math.Max(1, maxTextWidth) / averageCharWidth));
+                    lines = Math.Max(1, (int)Math.Ceiling((double)Math.Max(1, content.Length) / charsPerLine));
+                }
+
+                return new TextMeasurement(
+                    wrapText ? Math.Min(maxTextWidth, content.Length * averageCharWidth) : content.Length * averageCharWidth,
+                    Math.Ceiling(effectiveFontSize * 1.35 * lines));
+            }
+        }
+
+        private sealed record ResizeCandidate(
+            double X,
+            double Y,
+            double Width,
+            double Height,
+            double FontSize,
+            Rect VisualBounds);
+
+        private sealed record TextMeasurement(double Width, double Height);
     }
+
+    internal sealed record TextLayoutResult(
+        double FontSize,
+        double Inset,
+        double ContentWidth,
+        double ContentHeight,
+        double MeasuredWidth,
+        double MeasuredHeight,
+        bool Fits,
+        bool WrapText);
 
     internal enum ResizeHandleDirection
     {

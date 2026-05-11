@@ -22,12 +22,19 @@ namespace BarTenderClone.Converters
             var type = values[5] is ElementType elementType ? elementType : ElementType.Text;
             var fontSize = values[6] is double elementFontSize ? elementFontSize : 12;
             var content = values[7] as string ?? string.Empty;
+            var isBold = values.Length > 8 && values[8] is bool bold && bold;
+            var isCentered = values.Length > 9 && values[9] is bool centered && centered;
             var metric = parameter?.ToString() ?? string.Empty;
 
-            var local = DesignerInteractionHelper.GetLocalSize(width, height, type, fontSize, content);
+            var local = DesignerInteractionHelper.GetLocalSize(width, height, type, fontSize, content, rotation);
             const double handleSize = 8;
             const double rotateMarkerSize = 10;
             const double rotateMarkerOffset = 28;
+
+            if (TryConvertCursorMetric(metric, rotation, out var cursorValue))
+            {
+                return cursorValue;
+            }
 
             if (TryConvertChromeMetric(
                     metric,
@@ -53,6 +60,25 @@ namespace BarTenderClone.Converters
                 "VisualHeight" => DesignerInteractionHelper.GetVisualHeight(width, height, rotation, type, fontSize, content),
                 "LocalWidth" => local.Width,
                 "LocalHeight" => local.Height,
+                "TextFitFontSize" => DesignerInteractionHelper.MeasureTextLayout(
+                    local.Width,
+                    local.Height,
+                    fontSize,
+                    content,
+                    isBold,
+                    isCentered,
+                    rotation).FontSize,
+                "TextWrapping" => DesignerInteractionHelper.ShouldWrapText(rotation) ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                "TextLayoutWidth" => DesignerInteractionHelper.ShouldWrapText(rotation)
+                    ? DesignerInteractionHelper.MeasureTextLayout(
+                        local.Width,
+                        local.Height,
+                        fontSize,
+                        content,
+                        isBold,
+                        isCentered,
+                        rotation).ContentWidth
+                    : double.NaN,
                 _ => DependencyProperty.UnsetValue
             };
         }
@@ -97,6 +123,12 @@ namespace BarTenderClone.Converters
             if (!Enum.TryParse<ResizeHandleDirection>(parts[0], out var handle))
                 return false;
 
+            if (parts[1].Equals("Cursor", StringComparison.OrdinalIgnoreCase))
+            {
+                value = 0;
+                return false;
+            }
+
             var point = DesignerInteractionHelper.GetChromePoint(
                 width,
                 height,
@@ -112,6 +144,20 @@ namespace BarTenderClone.Converters
 
             return parts[1].Equals("Left", StringComparison.OrdinalIgnoreCase) ||
                    parts[1].Equals("Top", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryConvertCursorMetric(string metric, int rotation, out object value)
+        {
+            value = DependencyProperty.UnsetValue;
+            var parts = metric.Split('.');
+            if (parts.Length != 2 || !parts[1].Equals("Cursor", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (!Enum.TryParse<ResizeHandleDirection>(parts[0], out var handle))
+                return false;
+
+            value = DesignerInteractionHelper.GetResizeCursor(handle, rotation);
+            return true;
         }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)

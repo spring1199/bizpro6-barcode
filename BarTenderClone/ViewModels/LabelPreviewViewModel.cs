@@ -436,6 +436,12 @@ namespace BarTenderClone.ViewModels
             {
                 UpdateElementContentFromField(element);
             }
+
+            if (sender is LabelElement changedElement &&
+                e.PropertyName == nameof(LabelElement.RotationDegrees))
+            {
+                DesignerInteractionHelper.ClampElementToTemplate(changedElement, Template);
+            }
         }
 
         public void UpdateSelectedItems(System.Collections.IList selectedItems)

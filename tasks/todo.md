@@ -1,3 +1,128 @@
+# Rotated selection chrome edge clamp
+
+## Plan
+- [x] Keep rotated visual bounds inside the label with enough padding for resize handles.
+- [x] Clamp the selected element after rotation changes and before resize drag snapshots.
+- [x] Add a regression probe for a rotated text element near the label edge.
+- [x] Verify with build/probe and relaunch.
+
+## Notes
+- User report: after the bounded text preview fix, rotating the blue box makes the handles appear clipped at the label edge and the box becomes unusable.
+- Root cause being addressed: element content can rotate into a visual AABB that extends outside the clipped label canvas; handles are then partially outside the hit-testable/visible area.
+
+## Review
+- Added `DesignerInteractionHelper.ClampElementToTemplate(...)` to keep rotated visual bounds inside the label with `SelectionChromePadding` for handles.
+- Clamp now runs after rotation changes, when selecting an element, and before resize drag snapshots.
+- Added a regression probe for rotated text near the label edge so top/bottom handles remain inside the label when there is enough physical room.
+- `dotnet build testbartender.sln --no-restore -v:minimal` passed outside the sandbox with 0 errors.
+- `dotnet run --project test_parse.csproj --no-restore` passed outside the sandbox with `Template parity probe passed.`
+- Relaunched the rebuilt debug app from `BarTenderClone\bin\Debug\net9.0-windows\BizPro6Barcode.exe`.
+- Existing warnings remain: unreachable NuGet vulnerability metadata source `https://store.iotech.mn/v3/index.json` plus pre-existing nullable warnings.
+
+---
+
+# Rotated text bounded preview fix
+
+## Plan
+- [x] Replace designer text preview with an explicit bounded shrink-only visual.
+- [x] Keep 90/270 text no-wrap inside that bounded visual so long price/code text cannot clip.
+- [x] Keep wrapped horizontal text constrained to the visible content width.
+- [x] Add a regression probe for screenshot-sized rotated `MNT 395,000`.
+- [x] Verify with build/probe and relaunch.
+
+## Notes
+- User screenshot still shows `MNT 395,000` clipped as `T 395,` in the rotated small selection box.
+- The content becomes full only after making the blue box much larger, so the persisted content and rotation are correct; the designer preview visual is not enforcing the fitted layout inside the current selected box.
+
+## Review
+- Replaced the active designer text preview from a self-measuring `TextBlock` to a bounded `Viewbox` with `Stretch=Uniform` and `StretchDirection=DownOnly`.
+- Rotated 90/270 text remains no-wrap; long price/code text now shrinks as a full run inside the current selected box instead of being clipped by TextBlock layout.
+- Horizontal/wrapped text keeps an explicit layout width so normal wrap behavior is still constrained to the visible content area.
+- Added a screenshot-style regression case for `MNT 395,000` rotated 90 degrees inside a small explicit text box.
+- `dotnet build testbartender.sln --no-restore -v:minimal` passed outside the sandbox with 0 errors.
+- `dotnet run --project test_parse.csproj --no-restore` passed outside the sandbox with `Template parity probe passed.`
+- Relaunched the rebuilt debug app from `BarTenderClone\bin\Debug\net9.0-windows\BizPro6Barcode.exe`.
+- Existing warnings remain: unreachable NuGet vulnerability metadata source `https://store.iotech.mn/v3/index.json` plus pre-existing nullable warnings.
+
+---
+
+# Rotated text no-wrap fit follow-up
+
+## Plan
+- [x] Make the fitted text measurement rotation-aware.
+- [x] Force 90/270 designer text through no-wrap fit so price/code strings shrink instead of wrapping/clipping.
+- [x] Use the same no-wrap decision in raster print rendering.
+- [x] Add a regression probe for rotated narrow text requiring unwrapped width fit.
+- [x] Verify with solution build and `test_parse.csproj`, then record results.
+
+## Notes
+- User report: rotated text still clips, and only dragging the visible left-middle handle changes whether the content is clipped or fully visible.
+- Root cause: the current fit path still allows WPF wrapping. For 90/270 text this can mark the text as "fit" even though the rotated visual needs the original string to fit as one run inside the blue box.
+
+## Review
+- `DesignerInteractionHelper.MeasureTextLayout(...)` is now rotation-aware and returns whether the text should wrap.
+- 90/270 degree text uses no-wrap fitting, so price/code strings shrink until the full unrotated run fits inside the current local box before rotation.
+- Designer `TextBlock.TextWrapping` now binds to the same helper decision used for fitted font size.
+- Raster print text uses the same layout result; no-wrap rotated text is drawn without a separate `MaxTextWidth` wrapping rule.
+- Regression probe now asserts 90-degree narrow text uses no-wrap fit and that measured unwrapped width stays inside the content box.
+- `dotnet build testbartender.sln --no-restore -v:minimal` passed outside the sandbox with 0 errors.
+- `dotnet run --project test_parse.csproj --no-restore` passed outside the sandbox with `Template parity probe passed.`
+- Relaunched the rebuilt debug app from `BarTenderClone\bin\Debug\net9.0-windows\BizPro6Barcode.exe` after the final build.
+- Existing warnings remain: unreachable NuGet vulnerability metadata source `https://store.iotech.mn/v3/index.json` plus pre-existing nullable warnings.
+
+---
+
+# Rotated text auto-fit inside selection box
+
+## Plan
+- [x] Stop auto-growing text local/selection boxes from content measurement.
+- [x] Add shared fitted text layout measurement in `DesignerInteractionHelper`.
+- [x] Bind designer text rendering to fitted font and explicit box dimensions.
+- [x] Use the same fitted layout in raster print rendering.
+- [x] Update regression probes for narrow rotated text, designer/print parity, and resize behavior.
+- [x] Verify with solution build and `test_parse.csproj`, then record results.
+
+## Notes
+- User report: text content still requires dragging the lower middle handle to reveal full content, but expected behavior is content fitting inside the visible blue box.
+- Decision: user-controlled box stays fixed; text auto-fits down at render time.
+
+## Review
+- Text local/selection size now stays based on model `Width/Height` instead of expanding to measured content width/height.
+- Added shared `DesignerInteractionHelper.MeasureTextLayout(...)`, which returns fitted render font size and content bounds for a fixed box.
+- Designer text now binds `FontSize` to the fitted layout result; the rotated local grid clips to its explicit box.
+- Raster print text rendering now uses the same fitted layout result, preserving designer/print parity for auto-fit text.
+- Regression probe now asserts narrow rotated text keeps explicit box size, fits inside that box, keeps designer/print bitmap parity, and preserves existing 8-handle anchor behavior.
+- `dotnet build testbartender.sln --no-restore -v:minimal` passed with 0 errors.
+- `dotnet run --project test_parse.csproj --no-restore` passed with `Template parity probe passed.`
+- Existing warning remains: `NU1900` because `https://store.iotech.mn/v3/index.json` vulnerability metadata is unreachable.
+
+---
+
+# Rotated resize/selection stability fix
+
+## Plan
+- [x] Commit measured text local size before drag/resize so model `Width/Height` and designer local box cannot drift apart.
+- [x] Rework rotated resize to use local-rect fixed opposite anchors instead of resizing the visual AABB.
+- [x] Keep text corner-only font scaling and side-handle box-only behavior.
+- [x] Add regression probes for all handle directions at 0/90/180/270, anchor stability, and rotated text pixel bounds.
+- [x] Verify with solution build and `test_parse.csproj`, then record results.
+
+## Notes
+- User report: rotated selected elements still clip content and move/resize in confusing directions from the 8 blue handles.
+- Root cause being addressed: hidden auto-expanded display size diverges from persisted model size, then drag math switches between those coordinate systems.
+
+## Review
+- Added `DesignerInteractionHelper.CommitMeasuredLocalSize(...)` and call it before element move/resize starts, so measured text boxes are committed into model `Width/Height` before interaction math begins.
+- Replaced resize's visual-AABB mutation path with local fixed-anchor math. Opposite corner/edge remains stable while drag deltas are inverse-rotated into the element's local axes.
+- Kept text corner-only `FontSize` scaling; side/top/bottom handles keep font unchanged and resize only the text box.
+- Added rotation-aware resize cursors for all handles through `DesignerElementGeometryConverter`.
+- Extended `test_parse.csproj` probe to simulate all 8 resize handles at `0/90/180/270`, verify opposite anchor stability, verify model/display size commit, and assert rotated text pixels stay inside the visual box.
+- `dotnet build testbartender.sln --no-restore -v:minimal` passed with 0 errors.
+- `dotnet run --project test_parse.csproj --no-restore` passed with `Template parity probe passed.`
+- Existing warning remains: `NU1900` because `https://store.iotech.mn/v3/index.json` vulnerability metadata is unreachable.
+
+---
+
 # Rotated element geometry and preview parity
 
 ## Plan

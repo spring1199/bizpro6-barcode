@@ -218,12 +218,44 @@ internal static class Program
             RotationDegrees = 90
         };
         var explicitShortLocal = DesignerInteractionHelper.GetLocalSize(explicitShortText);
-        AssertTrue(
-            explicitShortLocal.Height > explicitShortText.Height,
-            "explicit-height rotated text expands to measured content height");
-        AssertTrue(
-            explicitShortLocal.Width > explicitShortText.Width,
-            "explicit-width rotated text expands to measured word width");
+        AssertAlmost(explicitShortText.Height, explicitShortLocal.Height, "explicit text height remains user-controlled");
+        AssertAlmost(explicitShortText.Width, explicitShortLocal.Width, "explicit text width remains user-controlled");
+        var explicitShortLayout = DesignerInteractionHelper.MeasureTextLayout(
+            explicitShortLocal.Width,
+            explicitShortLocal.Height,
+            explicitShortText.FontSize,
+            explicitShortText.Content,
+            explicitShortText.IsBold,
+            explicitShortText.IsCentered,
+            explicitShortText.RotationDegrees);
+        AssertTrue(explicitShortLayout.FontSize < explicitShortText.FontSize * LabelSizeHelper.FONT_SCALING_FACTOR, "narrow rotated text auto-fits below requested font size");
+        AssertTrue(explicitShortLayout.Fits, "narrow rotated text fits inside explicit box");
+        AssertTrue(!explicitShortLayout.WrapText, "90-degree text uses no-wrap fitting before rotation");
+        AssertTrue(explicitShortLayout.MeasuredWidth <= explicitShortLayout.ContentWidth + 0.75, "90-degree text unwrapped width fits inside content box");
+
+        var screenshotPriceText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "MNT 395,000",
+            X = 45,
+            Y = 30,
+            Width = 36,
+            Height = 58,
+            FontSize = 12,
+            IsBold = true,
+            RotationDegrees = 90
+        };
+        var screenshotPriceLocal = DesignerInteractionHelper.GetLocalSize(screenshotPriceText);
+        var screenshotPriceLayout = DesignerInteractionHelper.MeasureTextLayout(
+            screenshotPriceLocal.Width,
+            screenshotPriceLocal.Height,
+            screenshotPriceText.FontSize,
+            screenshotPriceText.Content,
+            screenshotPriceText.IsBold,
+            screenshotPriceText.IsCentered,
+            screenshotPriceText.RotationDegrees);
+        AssertTrue(screenshotPriceLayout.Fits, "screenshot-sized rotated price text fits inside explicit box");
+        AssertTrue(!screenshotPriceLayout.WrapText, "screenshot-sized rotated price text stays unwrapped");
 
         var narrowCyrillicText = new LabelElement
         {
@@ -237,12 +269,16 @@ internal static class Program
             RotationDegrees = 90
         };
         var narrowCyrillicLocal = DesignerInteractionHelper.GetLocalSize(narrowCyrillicText);
-        AssertTrue(
-            narrowCyrillicLocal.Width > narrowCyrillicText.Width,
-            "narrow rotated Cyrillic text expands to longest word width");
-        AssertTrue(
-            narrowCyrillicLocal.Height > narrowCyrillicText.Height,
-            "narrow rotated Cyrillic text expands to wrapped measured height");
+        AssertAlmost(narrowCyrillicText.Width, narrowCyrillicLocal.Width, "narrow Cyrillic text keeps explicit width");
+        AssertAlmost(narrowCyrillicText.Height, narrowCyrillicLocal.Height, "narrow Cyrillic text keeps explicit height");
+        var narrowCyrillicLayout = DesignerInteractionHelper.MeasureTextLayout(
+            narrowCyrillicLocal.Width,
+            narrowCyrillicLocal.Height,
+            narrowCyrillicText.FontSize,
+            narrowCyrillicText.Content,
+            rotationDegrees: narrowCyrillicText.RotationDegrees);
+        AssertTrue(narrowCyrillicLayout.Fits, "narrow rotated Cyrillic text auto-fits inside explicit box");
+        AssertTrue(!narrowCyrillicLayout.WrapText, "90-degree Cyrillic text uses no-wrap fitting before rotation");
 
         var topLeftAfterRotation = DesignerInteractionHelper.GetChromePoint(
             geometryText.Width,
@@ -308,6 +344,73 @@ internal static class Program
             new System.Windows.Vector(50, 0),
             1.0);
         AssertAlmost(10, sideResizedText.FontSize, "text side resize keeps font size");
+
+        var driftText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "MNT 350,000",
+            X = 40,
+            Y = 30,
+            Width = 18,
+            Height = 12,
+            FontSize = 12,
+            RotationDegrees = 90
+        };
+        var driftVisualBefore = DesignerInteractionHelper.GetVisualBounds(driftText);
+        var driftLocalBefore = DesignerInteractionHelper.GetLocalSize(driftText);
+        DesignerInteractionHelper.CommitMeasuredLocalSize(driftText);
+        var driftVisualAfter = DesignerInteractionHelper.GetVisualBounds(driftText);
+        AssertAlmost(driftLocalBefore.Width, driftText.Width, "commit normalizes text width to model");
+        AssertAlmost(driftLocalBefore.Height, driftText.Height, "commit normalizes text height to model");
+        AssertAlmost(driftVisualBefore.Left + driftVisualBefore.Width / 2, driftVisualAfter.Left + driftVisualAfter.Width / 2, "commit keeps visual center X");
+        AssertAlmost(driftVisualBefore.Top + driftVisualBefore.Height / 2, driftVisualAfter.Top + driftVisualAfter.Height / 2, "commit keeps visual center Y");
+
+        var textOnlyRender = LabelRenderEngine.RenderDesignerBitmap(
+            new[] { driftText },
+            null,
+            new LabelTemplate { Width = 220, Height = 180 },
+            new PrinterConfiguration { Dpi = 96, EnableUtf8 = true });
+        var textPixelBounds = GetNonWhitePixelBounds(textOnlyRender.Bitmap);
+        AssertTrue(textPixelBounds.HasValue, "rotated text render produces non-white pixels");
+        var textBounds = textPixelBounds.GetValueOrDefault();
+        AssertTrue(textBounds.X > driftVisualAfter.Left, "rotated text pixels stay inside left visual edge");
+        AssertTrue(textBounds.Y > driftVisualAfter.Top, "rotated text pixels stay inside top visual edge");
+        AssertTrue(textBounds.X + textBounds.Width < driftVisualAfter.Right, "rotated text pixels stay inside right visual edge");
+        AssertTrue(textBounds.Y + textBounds.Height < driftVisualAfter.Bottom, "rotated text pixels stay inside bottom visual edge");
+
+        foreach (var rotation in new[] { 0, 90, 180, 270 })
+        {
+            foreach (var handle in Enum.GetValues<ResizeHandleDirection>())
+            {
+                AssertResizeHandleKeepsOppositeAnchor(handle, rotation);
+            }
+        }
+
+        AssertEqual(
+            System.Windows.Input.Cursors.SizeWE,
+            DesignerInteractionHelper.GetResizeCursor(ResizeHandleDirection.Top, 90),
+            "90-degree top handle cursor maps to horizontal resize");
+        AssertEqual(
+            System.Windows.Input.Cursors.SizeNS,
+            DesignerInteractionHelper.GetResizeCursor(ResizeHandleDirection.Right, 90),
+            "90-degree right handle cursor maps to vertical resize");
+
+        var edgeRotatedText = new LabelElement
+        {
+            Type = ElementType.Text,
+            Content = "MNT 395,000",
+            X = 4,
+            Y = 4,
+            Width = 120,
+            Height = 24,
+            FontSize = 12,
+            RotationDegrees = 90
+        };
+        var edgeTemplate = new LabelTemplate { Width = 260, Height = 160 };
+        DesignerInteractionHelper.ClampElementToTemplate(edgeRotatedText, edgeTemplate);
+        var edgeBounds = DesignerInteractionHelper.GetVisualBounds(edgeRotatedText);
+        AssertTrue(edgeBounds.Top >= DesignerInteractionHelper.SelectionChromePadding - 0.75, "rotated clamp keeps top handles inside label");
+        AssertTrue(edgeBounds.Bottom <= edgeTemplate.Height - DesignerInteractionHelper.SelectionChromePadding + 0.75, "rotated clamp keeps bottom handles inside label");
 
         var rasterProbe = LabelRasterRenderService.RenderToZplGraphic(
             new[]
@@ -455,5 +558,118 @@ internal static class Program
         expected.CopyPixels(expectedPixels, stride, 0);
         actual.CopyPixels(actualPixels, stride, 0);
         return expectedPixels.SequenceEqual(actualPixels);
+    }
+
+    private static System.Windows.Int32Rect? GetNonWhitePixelBounds(System.Windows.Media.Imaging.BitmapSource bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+
+        var left = bitmap.PixelWidth;
+        var top = bitmap.PixelHeight;
+        var right = -1;
+        var bottom = -1;
+
+        for (var y = 0; y < bitmap.PixelHeight; y++)
+        {
+            for (var x = 0; x < bitmap.PixelWidth; x++)
+            {
+                var offset = y * stride + x * 4;
+                var blue = pixels[offset];
+                var green = pixels[offset + 1];
+                var red = pixels[offset + 2];
+                var alpha = pixels[offset + 3];
+                if (alpha == 0 || (red > 248 && green > 248 && blue > 248))
+                    continue;
+
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x);
+                bottom = Math.Max(bottom, y);
+            }
+        }
+
+        if (right < left || bottom < top)
+            return null;
+
+        return new System.Windows.Int32Rect(left, top, right - left + 1, bottom - top + 1);
+    }
+
+    private static void AssertResizeHandleKeepsOppositeAnchor(ResizeHandleDirection handle, int rotation)
+    {
+        var element = new LabelElement
+        {
+            Type = ElementType.Barcode,
+            Content = "B61F05C9",
+            X = 100,
+            Y = 70,
+            Width = 80,
+            Height = 30,
+            RotationDegrees = rotation
+        };
+        var template = new LabelTemplate { Width = 400, Height = 260 };
+        var beforeAnchor = GetOppositeAnchor(element, handle);
+        var localDelta = new System.Windows.Vector(
+            GetHandleX(handle) * 12,
+            GetHandleY(handle) * 8);
+        var screenDelta = DesignerInteractionHelper.RotateVector(localDelta, rotation);
+
+        DesignerInteractionHelper.ResizeElementFromSnapshot(
+            element,
+            template,
+            handle,
+            element.X,
+            element.Y,
+            element.Width,
+            element.Height,
+            element.FontSize,
+            element.RotationDegrees,
+            screenDelta,
+            1.0);
+
+        var afterAnchor = GetOppositeAnchor(element, handle);
+        AssertAlmost(beforeAnchor.X, afterAnchor.X, $"{rotation}/{handle} opposite anchor X");
+        AssertAlmost(beforeAnchor.Y, afterAnchor.Y, $"{rotation}/{handle} opposite anchor Y");
+
+        if (GetHandleX(handle) != 0)
+            AssertTrue(element.Width > 80, $"{rotation}/{handle} width grows along local X");
+        else
+            AssertAlmost(80, element.Width, $"{rotation}/{handle} width stable for vertical edge handle");
+
+        if (GetHandleY(handle) != 0)
+            AssertTrue(element.Height > 30, $"{rotation}/{handle} height grows along local Y");
+        else
+            AssertAlmost(30, element.Height, $"{rotation}/{handle} height stable for horizontal edge handle");
+    }
+
+    private static System.Windows.Point GetOppositeAnchor(LabelElement element, ResizeHandleDirection handle)
+    {
+        var local = DesignerInteractionHelper.GetLocalSize(element);
+        var center = new System.Windows.Point(element.X + local.Width / 2, element.Y + local.Height / 2);
+        var oppositeLocal = new System.Windows.Vector(
+            GetHandleX(handle) == 0 ? 0 : -GetHandleX(handle) * local.Width / 2,
+            GetHandleY(handle) == 0 ? 0 : -GetHandleY(handle) * local.Height / 2);
+        return center + DesignerInteractionHelper.RotateVector(oppositeLocal, element.RotationDegrees);
+    }
+
+    private static int GetHandleX(ResizeHandleDirection handle)
+    {
+        return handle switch
+        {
+            ResizeHandleDirection.TopLeft or ResizeHandleDirection.Left or ResizeHandleDirection.BottomLeft => -1,
+            ResizeHandleDirection.TopRight or ResizeHandleDirection.Right or ResizeHandleDirection.BottomRight => 1,
+            _ => 0
+        };
+    }
+
+    private static int GetHandleY(ResizeHandleDirection handle)
+    {
+        return handle switch
+        {
+            ResizeHandleDirection.TopLeft or ResizeHandleDirection.Top or ResizeHandleDirection.TopRight => -1,
+            ResizeHandleDirection.BottomLeft or ResizeHandleDirection.Bottom or ResizeHandleDirection.BottomRight => 1,
+            _ => 0
+        };
     }
 }

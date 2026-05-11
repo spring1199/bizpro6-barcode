@@ -11,3 +11,5 @@
 - When text still clips after height measurement, inspect width and glyph overhang too; narrow rotated Cyrillic text can be cut horizontally unless the local text box enforces measured unwrapped word width plus padding.
 - When rotated text clips at both ends even after box growth, add an actual render inset; measuring extra padding alone does not help if the TextBlock still paints directly on the clipping edge.
 - When the user says designer-to-print mismatch, do not overfit the explanation to orientation from photos; first separate orientation from WYSIWYG parity and focus on exact size/position matching.
+- When rotated text still clips and only one middle handle seems to fix it, check whether wrapping is hiding the real width requirement; 90/270 label text must often fit as a single unwrapped run before rotation.
+- When a fitted WPF `TextBlock` still clips after the math says it fits, stop relying on TextBlock's own desired-size behavior; render text through an explicit bounded Viewbox or custom drawing path so the visual box enforces the same contract as the measurement.
