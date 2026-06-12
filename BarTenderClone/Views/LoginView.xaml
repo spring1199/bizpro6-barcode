@@ -9,8 +9,8 @@
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance Type=vm:LoginViewModel}"
              HorizontalAlignment="Center" VerticalAlignment="Center">
-    <Border Background="{StaticResource SurfaceBrush}" 
-            BorderBrush="{StaticResource BorderBrush}" 
+    <Border Background="{DynamicResource SurfaceBrush}" 
+            BorderBrush="{DynamicResource BorderBrush}" 
             BorderThickness="1" 
             CornerRadius="8" 
             Padding="32" 
@@ -21,33 +21,33 @@
         
         <StackPanel>
             <!-- Header -->
-            <TextBlock Text="Welcome Back" 
+            <TextBlock Text="{DynamicResource LoginWelcomeBack}" 
                        HorizontalAlignment="Center" 
                        FontSize="24" 
                        FontWeight="SemiBold" 
-                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
                        Margin="0,0,0,8"/>
             
-            <TextBlock Text="Sign in to continue" 
+            <TextBlock Text="{DynamicResource LoginSignInToContinue}" 
                        HorizontalAlignment="Center" 
                        Style="{StaticResource CaptionTextStyle}"
                        FontSize="13"
                        Margin="0,0,0,32"/>
             
             <!-- Tenancy -->
-            <TextBlock Text="Tenancy Name" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
+            <TextBlock Text="{DynamicResource LoginTenancyName}" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
             <TextBox Text="{Binding TenancyName, UpdateSourceTrigger=PropertyChanged}" 
                      Style="{StaticResource ModernTextBoxStyle}"
                      Margin="0,0,0,16"/>
             
             <!-- Username -->
-            <TextBlock Text="Username" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
+            <TextBlock Text="{DynamicResource LoginUsername}" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
             <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" 
                      Style="{StaticResource ModernTextBoxStyle}"
                      Margin="0,0,0,16"/>
             
             <!-- Password -->
-            <TextBlock Text="Password" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
+            <TextBlock Text="{DynamicResource LoginPassword}" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,6"/>
             <PasswordBox x:Name="PasswordData" 
                          Style="{StaticResource {x:Type PasswordBox}}"
                          Padding="12,8"
@@ -63,7 +63,7 @@
             
             <!-- Error Message -->
             <TextBlock Text="{Binding ErrorMessage}" 
-                       Foreground="{StaticResource ErrorBrush}" 
+                       Foreground="{DynamicResource ErrorBrush}" 
                        TextWrapping="Wrap" 
                        FontSize="12"
                        Margin="0,0,0,16"
@@ -71,7 +71,7 @@
             
             <!-- Login Button -->
             <Grid>
-                <Button Content="Sign In" 
+                <Button Content="{DynamicResource LoginBtnSignIn}" 
                         Command="{Binding LoginCommand}" 
                         CommandParameter="{Binding ElementName=PasswordData}" 
                         Style="{StaticResource PrimaryButtonStyle}"

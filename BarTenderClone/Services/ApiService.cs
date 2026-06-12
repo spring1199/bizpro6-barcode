@@ -566,12 +566,15 @@ namespace BarTenderClone.Services
         {
             try
             {
-                System.IO.Directory.CreateDirectory(@"C:\Temp");
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var tempDir = System.IO.Path.Combine(appData, "BarTenderClone", "Temp");
+                System.IO.Directory.CreateDirectory(tempDir);
+
                 await System.IO.File.WriteAllTextAsync(
-                    @"C:\Temp\api_request.txt",
+                    System.IO.Path.Combine(tempDir, "api_request.txt"),
                     $"BASE URL: {NormalizeBaseUrl(baseUrl)}{Environment.NewLine}{requestPayload}");
                 await System.IO.File.WriteAllTextAsync(
-                    @"C:\Temp\api_response.txt",
+                    System.IO.Path.Combine(tempDir, "api_response.txt"),
                     $"BASE URL: {NormalizeBaseUrl(baseUrl)}{Environment.NewLine}{responsePayload}");
             }
             catch

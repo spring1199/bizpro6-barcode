@@ -1,0 +1,292 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    
+    <!-- Sidebar / Navigation -->
+    <sys:String x:Key="MenuProductData">Барааны мэдээлэл</sys:String>
+    <sys:String x:Key="MenuLabelDesigner">Шошго дизайнер</sys:String>
+    <sys:String x:Key="MenuHistory">Хэвлэлтийн түүх</sys:String>
+    <sys:String x:Key="MenuSettings">Тохиргоо</sys:String>
+    <sys:String x:Key="TextDarkMode">Харанхуй горим</sys:String>
+    <sys:String x:Key="BtnLogout">Системээс гарах</sys:String>
+    <sys:String x:Key="AppVersion">Хувилбар 1.0.0</sys:String>
+    
+    <!-- Login Screen -->
+    <sys:String x:Key="LoginWelcomeBack">Тавтай морилно уу</sys:String>
+    <sys:String x:Key="LoginSignInToContinue">Үргэлжлүүлэхийн тулд нэвтрэнэ үү</sys:String>
+    <sys:String x:Key="LoginTenancyName">Түрээслэгчийн нэр (Tenancy)</sys:String>
+    <sys:String x:Key="LoginUsername">Хэрэглэгчийн нэр</sys:String>
+    <sys:String x:Key="LoginPassword">Нууц үг</sys:String>
+    <sys:String x:Key="LoginBtnSignIn">Нэвтрэх</sys:String>
+    
+    <!-- History View -->
+    <sys:String x:Key="HistoryTotalPrints">Нийт хэвлэлт</sys:String>
+    <sys:String x:Key="HistorySuccess">Амжилттай</sys:String>
+    <sys:String x:Key="HistoryFailed">Амжилтгүй</sys:String>
+    <sys:String x:Key="HistorySearchPlaceholder">Хайх...</sys:String>
+    <sys:String x:Key="BtnClearHistory">Түүх устгах</sys:String>
+    <sys:String x:Key="BtnClearAll">Цэвэрлэх</sys:String>
+    <sys:String x:Key="PlaceholderFilterRfid">RFID-оор шүүх...</sys:String>
+    <sys:String x:Key="PlaceholderFilterBox">Хайрцагаар шүүх...</sys:String>
+    <sys:String x:Key="PlaceholderFilterCode">Кодоор шүүх...</sys:String>
+    <sys:String x:Key="HistoryColDate">Огноо</sys:String>
+    <sys:String x:Key="HistoryColProductCode">Барааны код</sys:String>
+    <sys:String x:Key="HistoryColProductName">Барааны нэр</sys:String>
+    <sys:String x:Key="HistoryColRfid">RFID</sys:String>
+    <sys:String x:Key="HistoryColQtyRequested">Тоо</sys:String>
+    <sys:String x:Key="HistoryColQtySucceeded">Амжилттай</sys:String>
+    <sys:String x:Key="HistoryColStatus">Төлөв</sys:String>
+    <sys:String x:Key="HistoryStatusSuccess">Амжилттай</sys:String>
+    <sys:String x:Key="HistoryStatusError">Алдаа гарсан</sys:String>
+
+    <!-- Settings View -->
+    <sys:String x:Key="SettingsHeader">Тохиргоо</sys:String>
+    <sys:String x:Key="SettingsGeneral">Ерөнхий тохиргоо</sys:String>
+    <sys:String x:Key="SettingsLanguage">Аппликейшний хэл</sys:String>
+    
+    <!-- Product Data & Designer View -->
+    <sys:String x:Key="LabelProdDataTitle">Барааны өгөгдөл</sys:String>
+    <sys:String x:Key="BtnLocation">Байршил</sys:String>
+    <sys:String x:Key="BtnAsset">Хөрөнгө</sys:String>
+    <sys:String x:Key="BtnPrinted">Хэвлэсэн</sys:String>
+    <sys:String x:Key="BtnSelectAll">Бүгдийг сонгох</sys:String>
+    <sys:String x:Key="BtnUnselectAll">Сонголтыг цуцлах</sys:String>
+    
+    <!-- Filters -->
+    <sys:String x:Key="FilterHeader">Шүүлтүүрүүд</sys:String>
+    <sys:String x:Key="FilterQuickSearch">Шуурхай хайх (Нэр, Код, RFID)...</sys:String>
+    <sys:String x:Key="FilterStatus">Төлөв</sys:String>
+    <sys:String x:Key="FilterRfid">RFID</sys:String>
+    <sys:String x:Key="FilterBoxNo">Хайрцаг</sys:String>
+    <sys:String x:Key="FilterCode">Код</sys:String>
+    <sys:String x:Key="FilterUnit">Хэмжих нэгж</sys:String>
+    <sys:String x:Key="FilterBranch">Салбар</sys:String>
+    <sys:String x:Key="FilterMinPrice">Хамгийн бага үнэ</sys:String>
+    <sys:String x:Key="FilterMaxPrice">Хамгийн их үнэ</sys:String>
+    <sys:String x:Key="FilterStartDate">Эхлэх огноо</sys:String>
+    <sys:String x:Key="FilterEndDate">Дуусах огноо</sys:String>
+    
+    <!-- Combobox items -->
+    <sys:String x:Key="CmbAll">Бүгд</sys:String>
+    <sys:String x:Key="CmbPrinted">Хэвлэгдсэн</sys:String>
+    <sys:String x:Key="CmbNotPrinted">Хэвлэгдээгүй</sys:String>
+    <sys:String x:Key="CmbError">Алдаатай</sys:String>
+    
+    <!-- Pagination -->
+    <sys:String x:Key="PageShow">Харуулах:</sys:String>
+    <sys:String x:Key="PagePerPage">хуудас бүрт</sys:String>
+    
+    <!-- DataGrid Headers -->
+    <sys:String x:Key="GridColCode">Код</sys:String>
+    <sys:String x:Key="GridColName">Нэр</sys:String>
+    <sys:String x:Key="GridColLocation">Байршил</sys:String>
+    <sys:String x:Key="GridColAsset">Хөрөнгө</sys:String>
+    <sys:String x:Key="GridColStatus">Төлөв</sys:String>
+    <sys:String x:Key="GridColRfid">RFID</sys:String>
+    <sys:String x:Key="GridColRfidStatus">RFID Төлөв</sys:String>
+    <sys:String x:Key="GridColBoxNo">Хайрцаг №</sys:String>
+    <sys:String x:Key="GridColCreatedDate">Үүсгэсэн огноо</sys:String>
+    <sys:String x:Key="GridColAcquisitionDate">Хүлээн авсан</sys:String>
+    <sys:String x:Key="GridColPrintedCount">Хэвлэсэн тоо</sys:String>
+    <sys:String x:Key="GridColPrice">Нэгж үнэ</sys:String>
+    <sys:String x:Key="GridColSupplier">Нийлүүлэгч</sys:String>
+    <sys:String x:Key="GridColCategory">Ангилал</sys:String>
+    <sys:String x:Key="GridColResponsibleEmployee">Хариуцагч</sys:String>
+    <sys:String x:Key="GridColActions">Үйлдэл</sys:String>
+    <sys:String x:Key="BtnPrint">Хэвлэх</sys:String>
+
+    <!-- Canvas toolbar -->
+    <sys:String x:Key="ToolbarBtnNew">Шинэ</sys:String>
+    <sys:String x:Key="ToolbarBtnLoad">Унших</sys:String>
+    <sys:String x:Key="ToolbarBtnSave">Хадгалах</sys:String>
+    <sys:String x:Key="ToolbarBtnAddText">➕ Текст</sys:String>
+    <sys:String x:Key="ToolbarBtnAddBarcode">📊 Баркод</sys:String>
+    <sys:String x:Key="ToolbarBtnAddImage">Зураг</sys:String>
+    <sys:String x:Key="ToolbarBtnClear">Цэвэрлэх</sys:String>
+    <sys:String x:Key="ToolbarSize">Хэмжээ (мм):</sys:String>
+    <sys:String x:Key="ToolbarMargins">Захын зай</sys:String>
+    <sys:String x:Key="ToolbarBoundary">Хэвлэх муж</sys:String>
+    <sys:String x:Key="ToolbarPrintCal">Хэвлэх тохиргоо:</sys:String>
+    <sys:String x:Key="ToolbarCalTest">Хэвлэх тест</sys:String>
+
+    <!-- Properties Panel -->
+    <sys:String x:Key="PropHeader">Элементийн шинж чанар</sys:String>
+    <sys:String x:Key="PropType">Төрөл:</sys:String>
+    <sys:String x:Key="PropContent">Агуулга:</sys:String>
+    <sys:String x:Key="PropBindField">Талбарт холбох:</sys:String>
+    <sys:String x:Key="PropFontSize">Үсгийн хэмжээ:</sys:String>
+    <sys:String x:Key="PropBold">Тод:</sys:String>
+    <sys:String x:Key="PropRotation">Эргэлт:</sys:String>
+    <sys:String x:Key="PropWidth">Өргөн (мм):</sys:String>
+    <sys:String x:Key="PropHeight">Өндөр (мм):</sys:String>
+    <sys:String x:Key="PropZplPreview">ZPL Харагдац</sys:String>
+    <sys:String x:Key="PropBtnDelete">🗑️ Устгах</sys:String>
+    <sys:String x:Key="PropCenter">Голлуулах</sys:String>
+    <sys:String x:Key="PropBoldText">Тод текст</sys:String>
+    <sys:String x:Key="PropEmptySelection">Элемент сонгож шинж чанарыг нь өөрчилнө үү</sys:String>
+    
+    <!-- Print Panel -->
+    <sys:String x:Key="PropPrintSetup">Хэвлэх тохиргоо</sys:String>
+    <sys:String x:Key="PropPrinter">Хэвлэгч:</sys:String>
+    <sys:String x:Key="PropQuantity">Тоо хэмжээ</sys:String>
+    <sys:String x:Key="PropBtnPrintLabel">Шошго хэвлэх</sys:String>
+    <sys:String x:Key="PropDpi">DPI:</sys:String>
+    <sys:String x:Key="PropMedia">Цаас:</sys:String>
+    <sys:String x:Key="PropQty">Тоо:</sys:String>
+    <sys:String x:Key="BtnPrintSelected">🖨️ Сонгосныг хэвлэх (</sys:String>
+    <sys:String x:Key="BtnPrintCurrent">🖨️ Одоогийнхийг хэвлэх</sys:String>
+    <sys:String x:Key="BtnTest">Тест</sys:String>
+    <sys:String x:Key="BtnDirect">Шууд</sys:String>
+    <sys:String x:Key="BtnMode">Горим</sys:String>
+    <sys:String x:Key="LanguageSidebar">Хэл:</sys:String>
+
+    <!-- Missing Column Headers -->
+    <sys:String x:Key="GridColUnit">Нэгж</sys:String>
+    <sys:String x:Key="GridColBranch">Салбар</sys:String>
+    <sys:String x:Key="GridColDate">Огноо</sys:String>
+
+    <!-- Tooltips -->
+    <sys:String x:Key="ToolTipFirstPage">Эхний хуудас</sys:String>
+    <sys:String x:Key="ToolTipPrevPage">Өмнөх хуудас</sys:String>
+    <sys:String x:Key="ToolTipNextPage">Дараагийн хуудас</sys:String>
+    <sys:String x:Key="ToolTipLastPage">Сүүлийн хуудас</sys:String>
+    <sys:String x:Key="ToolTipNewTemplate">Шинэ загвар үүсгэх</sys:String>
+    <sys:String x:Key="ToolTipLoadTemplate">Загвар ачаалах</sys:String>
+    <sys:String x:Key="ToolTipSaveTemplate">Загвар хадгалах</sys:String>
+    <sys:String x:Key="ToolTipUnsavedChanges">Хадгалаагүй өөрчлөлтүүд</sys:String>
+    <sys:String x:Key="ToolTipShowMargins">Захын зай харуулах</sys:String>
+    <sys:String x:Key="ToolTipShowBoundary">Хэвлэх мужийн хүрээг харуулах</sys:String>
+    <sys:String x:Key="ToolTipFinalCalibration">Төгсгөлийн хэвлэлтийн шалгалт: шилжилт мм, масштаб болон эргэлт</sys:String>
+    <sys:String x:Key="ToolTipOffsetX">Хэвлэх шилжилт X (миллиметрээр)</sys:String>
+    <sys:String x:Key="ToolTipOffsetY">Хэвлэх шилжилт Y (миллиметрээр)</sys:String>
+    <sys:String x:Key="ToolTipScaleX">Хэвлэх масштаб X, 1.0 нь хэвээрээ</sys:String>
+    <sys:String x:Key="ToolTipScaleY">Хэвлэх масштаб Y, 1.0 нь хэвээрээ</sys:String>
+    <sys:String x:Key="ToolTipRotation">Шошгыг бүхэлд нь эргүүлэх</sys:String>
+    <sys:String x:Key="ToolTipPrintCal">Шалгалт хийх шошго хэвлэх</sys:String>
+    <sys:String x:Key="ToolTipRefreshPrinters">Хэвлэгчийн жагсаалтыг шинэчлэх</sys:String>
+    <sys:String x:Key="ToolTipTestConnection">Холболтыг шалгах тест хэвлэх</sys:String>
+    <sys:String x:Key="ToolTipDirectTest">Тестийг USB портоор шууд илгээх</sys:String>
+    <sys:String x:Key="ToolTipSwitchZpl">Хэвлэгчийг ZPL горимд шилжүүлэх</sys:String>
+    <sys:String x:Key="ToolTipMediaType">Цаасны төрөл</sys:String>
+    <sys:String x:Key="ToolTipMediaDesc">Шууд дулааны эсвэл Туузан дамжуулалттай хэвлэлт</sys:String>
+    <sys:String x:Key="ToolTipPrintSelected">Сонгосон бүх барааны шошгыг хэвлэх</sys:String>
+    <sys:String x:Key="ToolTipPrintCurrent">Одоогийн сонгосон барааны шошгыг хэвлэх</sys:String>
+
+    <!-- Enums and Statuses -->
+    <sys:String x:Key="MediaType_DirectThermal">Шууд дулааны</sys:String>
+    <sys:String x:Key="MediaType_ThermalTransfer">Туузан дамжуулалттай</sys:String>
+    <sys:String x:Key="ElementType_Text">Текст</sys:String>
+    <sys:String x:Key="ElementType_Barcode">Баркод</sys:String>
+    <sys:String x:Key="ElementType_QRCode">QR Код</sys:String>
+    <sys:String x:Key="ElementType_Image">Зураг</sys:String>
+    <sys:String x:Key="StatusErrorPrefix">Алдаа: </sys:String>
+    <sys:String x:Key="StatusPrintedAt">Хэвлэсэн: </sys:String>
+    <sys:String x:Key="StatusPrinted">Хэвлэгдсэн</sys:String>
+    <sys:String x:Key="StatusNotPrinted">Хэвлэгдээгүй</sys:String>
+    <sys:String x:Key="StatusError">Алдаа</sys:String>
+    <sys:String x:Key="RfidStatus_0">Идэвхгүй</sys:String>
+    <sys:String x:Key="RfidStatus_1">Идэвхтэй</sys:String>
+    <sys:String x:Key="RfidStatus_2">Борлуулсан</sys:String>
+    <sys:String x:Key="RfidStatus_3">Бусад</sys:String>
+    <sys:String x:Key="RfidStatus_4">Гэмтэлтэй</sys:String>
+    <sys:String x:Key="RfidStatus_5">Хулгайд алдсан</sys:String>
+    <sys:String x:Key="RfidStatus_6">Актласан</sys:String>
+    <sys:String x:Key="RfidStatus_7">Бэлэглэсэн</sys:String>
+    <sys:String x:Key="RfidStatus_8">Шилжүүлсэн</sys:String>
+    <sys:String x:Key="RfidStatus_9">Буцаасан</sys:String>
+    <sys:String x:Key="RfidStatus_10">Түгээлтэнд гарсан</sys:String>
+    <sys:String x:Key="RfidStatus_Unknown">—</sys:String>
+
+    <!-- Messages & Warnings -->
+    <sys:String x:Key="ErrFillFields">Бүх талбарыг бөглөнө үү.</sys:String>
+    <sys:String x:Key="ErrLoginFailed">Нэвтрэхэд алдаа гарлаа. Нэвтрэх нэр, нууц үгээ шалгана уу.</sys:String>
+    <sys:String x:Key="ErrAnErrorOccurred">Алдаа гарлаа: </sys:String>
+    <sys:String x:Key="MsgLogoutConfirm">Та системээс гарахдаа итгэлтэй байна уу?</sys:String>
+    <sys:String x:Key="MsgLogoutTitle">Системээс гарах</sys:String>
+    <sys:String x:Key="MsgSessionExpired">Таны нэвтрэх хугацаа дууссан байна. Дахин нэвтрэнэ үү.</sys:String>
+    <sys:String x:Key="MsgSessionExpiredTitle">Нэвтрэх хугацаа дууссан</sys:String>
+    <sys:String x:Key="MsgNavErrorPrefix">Аппликейшнийг ачаалахад алдаа гарлаа: </sys:String>
+    <sys:String x:Key="MsgNavErrorTitle">Чиглүүлэлтийн алдаа</sys:String>
+    <sys:String x:Key="MsgClearHistoryConfirm">Хэвлэлтийн түүхийг устгахдаа итгэлтэй байна уу?</sys:String>
+    <sys:String x:Key="MsgConfirmTitle">Баталгаажуулах</sys:String>
+    <sys:String x:Key="MsgIncompleteInfoTitle">Мэдээлэл дутуу</sys:String>
+    <sys:String x:Key="MsgWarningIncompleteInfo">Анхааруулга: Барааны мэдээлэл дутуу байна.</sys:String>
+    <sys:String x:Key="MsgProductDataIncomplete">Барааны мэдээлэл дутуу эсвэл зөв ачаалагдаагүй байна. Өөр бараа сонгож туршина уу.</sys:String>
+    <sys:String x:Key="MsgSyncLocationStart">Байршлын мэдээллийг SAP-аас синк хийж байна...</sys:String>
+    <sys:String x:Key="MsgSyncLocationSuccess">Байршил синк хийх хүсэлт амжилттай илгээгдлээ.</sys:String>
+    <sys:String x:Key="MsgSyncLocationSuccessDetail">Байршлын мэдээллийг SAP-аас синк хийх процесс эхэллээ. Түр хүлээгээд дахин шалгана уу.</sys:String>
+    <sys:String x:Key="MsgSyncLocationError">Байршил синк хийхэд алдаа гарлаа.</sys:String>
+    <sys:String x:Key="MsgSyncErrorPrefix">Алдаа: </sys:String>
+    <sys:String x:Key="MsgSyncAssetStart">Хөрөнгийн мэдээллийг SAP-аас синк хийж байна...</sys:String>
+    <sys:String x:Key="MsgSyncAssetSuccess">Хөрөнгө синк хийх хүсэлт амжилттай илгээгдлээ.</sys:String>
+    <sys:String x:Key="MsgSyncAssetSuccessDetail">Хөрөнгийн мэдээллийг SAP-аас синк хийх процесс эхэллээ. Түр хүлээгээд дахин шалгана уу.</sys:String>
+    <sys:String x:Key="MsgSyncAssetError">Хөрөнгө синк хийхэд алдаа гарлаа.</sys:String>
+    <sys:String x:Key="MsgSyncTitle">Синк эхэллээ</sys:String>
+    <sys:String x:Key="MsgNoProductSelected">Бараа сонгогдоогүй байна.</sys:String>
+    <sys:String x:Key="MsgSettingPrintedState">Хэвлэсэн төлөвт оруулж байна...</sys:String>
+    <sys:String x:Key="MsgSetPrintedStateSuccess">{0} барааг хэвлэсэн төлөвт орууллаа.</sys:String>
+    <sys:String x:Key="MsgPrintedWarning">'{0}' нь өмнө нь хэвлэгдсэн байна.\n\nДахин хэвлэх үү?</sys:String>
+    <sys:String x:Key="MsgPrintedWarningMultiple">Сонгосон бараануудын дотор өмнө нь хэвлэгдсэн {0} бараа байна.\n\nБүгдийг нь дахин хэвлэх үү?</sys:String>
+    <sys:String x:Key="MsgPrintedWarningTitle">Хэвлэгдсэн бараа</sys:String>
+    <sys:String x:Key="StatusShowingOf">Харуулах: {0} / {1}</sys:String>
+    <sys:String x:Key="StatusLoadedItems">Нийт {0} бараа ачааллаа</sys:String>
+    <sys:String x:Key="StatusPrintCancelled">Хэвлэлтийг цуцаллаа.</sys:String>
+    <sys:String x:Key="MsgEnterTemplateName">Загварын нэрийг оруулна уу.</sys:String>
+    <sys:String x:Key="MsgDataUpdated">Өгөгдөл шинэчлэгдлээ: </sys:String>
+
+    <!-- Layout Validation Messages -->
+    <sys:String x:Key="MsgPleaseSelectPrinter">Хэвлэгчийг сонгоно уу.</sys:String>
+    <sys:String x:Key="MsgNoPrinterTitle">Хэвлэгч сонгоогүй</sys:String>
+    <sys:String x:Key="MsgPleaseAddElements">Хэвлэхээс өмнө шошгонд элементүүд нэмнэ үү.</sys:String>
+    <sys:String x:Key="MsgPleaseAddElementsFirst">Эхлээд шошгоны элементүүдээ нэмнэ үү.</sys:String>
+    <sys:String x:Key="MsgNoElementsTitle">Элемент байхгүй</sys:String>
+    <sys:String x:Key="MsgLayoutWarningPrefix">Шошгоны зохиомж шалгахад дараах асуудлууд илэрлээ:\n\n</sys:String>
+    <sys:String x:Key="MsgLayoutWarningAndMore">\n\n...болон өөр {0} асуудал</sys:String>
+    <sys:String x:Key="MsgLayoutWarningContinue">\n\nҮргэлжлүүлэн хэвлэх үү?</sys:String>
+    <sys:String x:Key="MsgLayoutWarningTitle">Зохиомжийн анхааруулга</sys:String>
+    <sys:String x:Key="ValWarningLeft">'{0}' нь зүүн хязгаараас хэтэрсэн байна (хэвлэхэд хасагдаж магадгүй)</sys:String>
+    <sys:String x:Key="ValWarningTop">'{0}' нь дээд хязгаараас хэтэрсэн байна (хэвлэхэд хасагдаж магадгүй)</sys:String>
+    <sys:String x:Key="ValWarningRight">'{0}' нь баруун хязгаараас хэтэрсэн байна (хэвлэхэд тайрагдаж магадгүй)</sys:String>
+    <sys:String x:Key="ValWarningBottom">'{0}' нь доод хязгаараас хэтэрсэн байна (хэвлэхэд тайрагдаж магадгүй)</sys:String>
+    <sys:String x:Key="ValWarningFontSize">'{0}' нь {1:F0}px үсгийн хэмжээтэй байна (хэт жижиг тул уншигдахгүй байх магадгүй)</sys:String>
+
+    <!-- Windows and dialogs -->
+    <sys:String x:Key="PlaceholderMessage">Энэ хэсэг тун удахгүй нэмэгдэх болно.</sys:String>
+    <sys:String x:Key="LoadTemplateTitle">Загвар ачаалах</sys:String>
+    <sys:String x:Key="SelectTemplateText">Загварыг сонгоно уу:</sys:String>
+    <sys:String x:Key="BtnCancel">Цуцлах</sys:String>
+    <sys:String x:Key="BtnLoad">Ачаалах</sys:String>
+    <sys:String x:Key="SaveTemplateTitle">Загвар хадгалах</sys:String>
+    <sys:String x:Key="EnterTemplateNameText">Загварын нэрийг оруулна уу:</sys:String>
+    <sys:String x:Key="MsgSelectTemplate">Загварыг сонгоно уу.</sys:String>
+    <sys:String x:Key="MsgSelectTemplateDelete">Устгах загварыг сонгоно уу.</sys:String>
+    <sys:String x:Key="MsgDeleteTemplateConfirm">'{0}' загварыг устгахдаа итгэлтэй байна уу?</sys:String>
+    <sys:String x:Key="MsgConfirmDeleteTitle">Устгахыг баталгаажуулах</sys:String>
+    <sys:String x:Key="MsgEnterTemplateName">Загварын нэрийг оруулна уу.</sys:String>
+    <sys:String x:Key="MsgDataUpdated">Өгөгдөл шинэчлэгдлээ: </sys:String>
+    <sys:String x:Key="StatusPrintCancelled">Хэвлэлтийг цуцаллаа.</sys:String>
+
+    <!-- Extra Viewmodel and dialogue translations -->
+    <sys:String x:Key="MsgClearCanvasConfirm">Та загварыг цэвэрлэхдээ итгэлтэй байна уу? Хадгалаагүй өөрчлөлтүүд устах болно.</sys:String>
+    <sys:String x:Key="MsgUnsavedChangesTitle">Хадгалаагүй өөрчлөлтүүд</sys:String>
+    <sys:String x:Key="MsgInsertImageError">Зураг оруулахад алдаа гарлаа: {0}</sys:String>
+    <sys:String x:Key="MsgInsertImageErrorTitle">Зураг оруулахад алдаа гарсан</sys:String>
+    <sys:String x:Key="MsgTestPrintSuccess">Тест шошгыг {0} руу илгээлээ.\n\nАжлын ID: {1}\n\nИлгээсэн ZPL:\n{2}</sys:String>
+    <sys:String x:Key="MsgTestPrintTitle">Тест хэвлэлт</sys:String>
+    <sys:String x:Key="MsgZplSwitchSuccess">ZPL горимд шилжих командыг илгээлээ. 5 секунд хүлээгээд 'Тест' товчийг дахин дарна уу.</sys:String>
+    <sys:String x:Key="MsgZplSwitchTitle">ZPL горимд шилжүүлэх</sys:String>
+    <sys:String x:Key="MsgDirectTestSuccess">Шууд USB портоор тест илгээлээ (USB002).\n\nZPL:\n{0}\n\nХэвлэгчээс цаас гарч байгаа эсэхийг шалгана уу.\n\nХэрэв энэ ажиллаад ердийн Тест ажиллахгүй байвал Windows драйвертай холбоотой асуудал байна.</sys:String>
+    <sys:String x:Key="MsgDirectTestError">USB002 руу илгээхэд алдаа гарлаа. Энэ порт нь өөр драйверт ашиглагдаж байгаа эсвэл хэвлэгч унтарсан байж магадгүй.</sys:String>
+    <sys:String x:Key="MsgDirectTestErrorTitle">Шууд портоор хэвлэх алдаа</sys:String>
+    <sys:String x:Key="MsgDirectTestException">Шууд портоор хэвлэхэд алдаа гарлаа:\n\n{0}\n\nЭнэ нь ихэвчлэн порт Windows драйвераар түгжигдсэн үед тохиолддог.</sys:String>
+    <sys:String x:Key="MsgPrintFailed">Хэвлэх үйлдэл амжилтгүй боллоо:\n\n{0}</sys:String>
+    <sys:String x:Key="MsgPrintFailedTitle">Хэвлэх алдаа</sys:String>
+    <sys:String x:Key="MsgBatchStopError">Алдааны улмаас багц хэвлэлт зогслоо!\n\nАмжилттай: {0} бараа ({1} шошго)\nАмжилтгүй: {2} бараа ({3} шошго)\nВебсайт статус синк алдаа: {4}\nАчаалаагүй: {5} бараа{6}</sys:String>
+    <sys:String x:Key="MsgBatchStopTitle">Багц хэвлэлт зогслоо</sys:String>
+
+    <!-- Extra load and calibration translations -->
+    <sys:String x:Key="MsgActiveSelectionsConfirm">Та {0} бараа сонгосон байна.\n\nШинэ өгөгдөл ачаалбал сонголтууд устах болно. Үргэлжлүүлэх үү?</sys:String>
+    <sys:String x:Key="MsgActiveSelectionsTitle">Сонгогдсон бараанууд</sys:String>
+    <sys:String x:Key="StatusLoading">Ачаалж байна...</sys:String>
+    <sys:String x:Key="StatusNoItems">Бараа олдсонгүй эсвэл API алдаа гарлаа.</sys:String>
+</ResourceDictionary>

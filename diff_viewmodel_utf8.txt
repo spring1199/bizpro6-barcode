@@ -1,0 +1,583 @@
+﻿diff --git a/BarTenderClone/ViewModels/LabelPreviewViewModel.cs b/BarTenderClone/ViewModels/LabelPreviewViewModel.cs
+index dd5fb34..361faec 100644
+--- a/BarTenderClone/ViewModels/LabelPreviewViewModel.cs
++++ b/BarTenderClone/ViewModels/LabelPreviewViewModel.cs
+@@ -13,23 +13,45 @@ using System.Threading.Tasks;
+ using BarTenderClone.Views;
+ using Microsoft.Win32;
+ using Newtonsoft.Json.Linq;
++using System.Windows;
+ 
+ namespace BarTenderClone.ViewModels
+ {
++    public enum AppViewMode
++    {
++        ProductData,
++        Designer
++    }
++
+     public partial class LabelPreviewViewModel : ObservableObject
+     {
+         private readonly IApiService _apiService;
+         private readonly IPrintService _printService;
+         private readonly ISessionService _sessionService;
+         private readonly ITemplateService _templateService;
+-        private readonly IResourceMetadataService _resourceMetadataService;
++        private readonly IResourceMetadataService _metadataService;
++        private readonly IPrintHistoryService _printHistoryService;
+         private readonly ILoggingService _logger;
++        private readonly UndoRedoManager _undoRedoManager = new(maxDepth: 50);
++
++        [ObservableProperty]
++        [NotifyPropertyChangedFor(nameof(IsProductDataVisible))]
++        [NotifyPropertyChangedFor(nameof(IsDesignerVisible))]
++        private AppViewMode _viewMode = AppViewMode.ProductData;
++
++        public Visibility IsProductDataVisible => ViewMode == AppViewMode.ProductData ? Visibility.Visible : Visibility.Collapsed;
++        public Visibility IsDesignerVisible => ViewMode == AppViewMode.Designer ? Visibility.Visible : Visibility.Collapsed;
++
++        // Navigation Action for changing views from code-behind if needed
++        public Action? RequestFocus { get; set; }
+ 
+         /// <summary>
+         /// Fired when the session token has expired. Subscribers should navigate back to the login screen.
+         /// </summary>
+         public event EventHandler? SessionExpired;
+ 
++
++
+         [ObservableProperty]
+         private LabelTemplate _template = new LabelTemplate();
+ 
+@@ -235,6 +257,12 @@ namespace BarTenderClone.ViewModels
+         [ObservableProperty]
+         private bool _autoPopulateOnSelect = true; // Enable auto-populate by default
+ 
++        [ObservableProperty]
++        private bool _showMarginGuides = true;
++
++        [ObservableProperty]
++        private bool _showCalibratedBoundary = true;
++
+         [ObservableProperty]
+         private bool _enableRfidEncoding = true;
+ 
+@@ -314,9 +342,43 @@ namespace BarTenderClone.ViewModels
+         // Computed property for zoom percentage display
+         public string ZoomPercentage => $"{Math.Round(CurrentZoom * 100)}%";
+ 
++        // Inverse zoom for zoom-independent UI elements (resize handles)
++        public double InverseZoom => 1.0 / Math.Max(CurrentZoom, 0.1);
++
++        // Undo/Redo state
++        public bool CanUndo => _undoRedoManager.CanUndo;
++        public bool CanRedo => _undoRedoManager.CanRedo;
++
++        /// <summary>
++        /// Captures current element state for undo. Call before any destructive operation.
++        /// </summary>
++        public void SaveUndoState(string? description = null)
++        {
++            _undoRedoManager.SaveState(Elements, description);
++        }
++
++        [RelayCommand]
++        private void Undo()
++        {
++            if (_undoRedoManager.Undo(Elements))
++            {
++                SelectedElement = null;
++            }
++        }
++
++        [RelayCommand]
++        private void Redo()
++        {
++            if (_undoRedoManager.Redo(Elements))
++            {
++                SelectedElement = null;
++            }
++        }
++
+         partial void OnCurrentZoomChanged(double value)
+         {
+             OnPropertyChanged(nameof(ZoomPercentage));
++            OnPropertyChanged(nameof(InverseZoom));
+         }
+ 
+         public LabelPreviewViewModel(
+@@ -324,14 +386,16 @@ namespace BarTenderClone.ViewModels
+             IPrintService printService,
+             ISessionService sessionService,
+             ITemplateService templateService,
+-            IResourceMetadataService resourceMetadataService,
++            IResourceMetadataService metadataService,
++            IPrintHistoryService printHistoryService,
+             ILoggingService logger)
+         {
+             _apiService = apiService;
+             _printService = printService;
+             _sessionService = sessionService;
+             _templateService = templateService;
+-            _resourceMetadataService = resourceMetadataService;
++            _metadataService = metadataService;
++            _printHistoryService = printHistoryService;
+             _logger = logger;
+ 
+             LoadPrinters();
+@@ -360,6 +424,22 @@ namespace BarTenderClone.ViewModels
+                     UpdatePagedView();
+                 }
+             };
++
++            // Auto-load data on initialization
++            _ = LoadDataAsync();
++
++            // Subscribe to UndoRedoManager state changes for CanUndo/CanRedo binding
++            _undoRedoManager.StateChanged += (_, _) =>
++            {
++                OnPropertyChanged(nameof(CanUndo));
++                OnPropertyChanged(nameof(CanRedo));
++            };
++
++            // Subscribe to language changes using weak event manager
++            System.Windows.WeakEventManager<Helpers.LanguageHelper, System.EventArgs>.AddHandler(
++                null, 
++                nameof(Helpers.LanguageHelper.LanguageChanged), 
++                OnLanguageChanged);
+         }
+ 
+         partial void OnTemplateWidthInchesChanged(double value) 
+@@ -382,7 +462,7 @@ namespace BarTenderClone.ViewModels
+             }
+ 
+             // When a product is selected, update the canvas accordingly
+-            if (value == null || IsMultiSelect) return;
++            if (value == null) return;
+ 
+             // If there are existing elements (loaded template), just refresh their content
+             // This preserves the template layout while updating the data
+@@ -475,6 +555,20 @@ namespace BarTenderClone.ViewModels
+                 SelectedProducts.Add(item);
+             }
+ 
++            IsMultiSelect = SelectedProducts.Count > 1;
++
++            if (SelectedProducts.Count > 0)
++            {
++                if (SelectedProduct == null || !SelectedProducts.Contains(SelectedProduct))
++                {
++                    SelectedProduct = SelectedProducts.FirstOrDefault();
++                }
++            }
++            else
++            {
++                SelectedProduct = null;
++            }
++
+             // Update IsAllSelected state based on CURRENT PAGE only
+             UpdateSelectAllCheckboxState();
+             UpdateSelectionSummary();
+@@ -736,20 +830,18 @@ namespace BarTenderClone.ViewModels
+                     {
+                         System.Diagnostics.Debug.WriteLine($"[LabelPreview] ERROR: Re-parse failed for Product ID={product.Id}: {ex.Message}");
+                     }
+-                }
+-
+-                if (product.ParsedDocument == null)
++                }
+                if (product.ParsedDocument == null)
+                 {
+                     product.ParsedDocument = new ResourceDocument();
+-                    StatusMessage = "Анхааруулга: Барааны мэдээлэл дутуу байна. 'Fetch Data' дахин дарна уу.";
++                    StatusMessage = GetResourceString("MsgWarningIncompleteInfo", "Анхааруулга: Барааны мэдээлэл дутуу байна.");
+                     System.Diagnostics.Debug.WriteLine($"[LabelPreview] WARNING: Product ID={product.Id} created empty ParsedDocument as fallback.");
+  
+                     System.Windows.MessageBox.Show(
+-                        "Барааны мэдээлэл зөв ачаалагдаагүй байна.\n\n" +
+-                        "Дараах алхмуудыг хийж үзнэ үү:\n" +
+-                        "1. 'Fetch Data' товч дахин дарах\n" +
+-                        "2. Өөр бараа сонгож туршах",
+-                        "Мэдээлэл дутуу",
++                        GetResourceString("MsgProductDataIncomplete", "Барааны мэдээлэл дутуу эсвэл зөв ачаалагдаагүй байна. Өөр бараа сонгож туршина уу."),
++                        GetResourceString("MsgIncompleteInfoTitle", "Мэдээлэл дутуу"),
++                        System.Windows.MessageBoxButton.OK,
++                        System.Windows.MessageBoxImage.Warning);
++                }л дутуу",
+                         System.Windows.MessageBoxButton.OK,
+                         System.Windows.MessageBoxImage.Warning);
+                 }
+@@ -800,7 +892,7 @@ namespace BarTenderClone.ViewModels
+                 UpdateElementContentFromField(element, product);
+             }
+ 
+-            StatusMessage = $"Өгөгдөл шинэчлэгдлээ: {product.ProductName}";
++            StatusMessage = $"{GetResourceString("MsgDataUpdated", "Өгөгдөл шинэчлэгдлээ: ")}{product.ProductName}";
+         }
+ 
+         private void PopulateStandardLayout(ResourceItem product)
+@@ -879,8 +971,8 @@ namespace BarTenderClone.ViewModels
+                 X = leftMargin,
+                 Y = currentY,
+                 FontSize = codeFontPx,
+-                Width = availableWidth,
+-                Height = codeLineHeightPx
++                Width = 0,
++                Height = 0
+             });
+             currentY += codeLineHeightPx + sectionSpacingPx;
+ 
+@@ -894,8 +986,8 @@ namespace BarTenderClone.ViewModels
+                 Y = currentY,
+                 FontSize = nameFontPx,
+                 IsBold = false,
+-                Width = availableWidth,
+-                Height = nameLineHeightPx
++                Width = 0,
++                Height = 0
+             });
+             currentY += nameLineHeightPx + lineSpacingPx;
+ 
+@@ -904,12 +996,13 @@ namespace BarTenderClone.ViewModels
+             {
+                 Type = ElementType.Text,
+                 Content = priceText,
++                FieldName = "Price",
+                 X = leftMargin,
+                 Y = currentY,
+                 FontSize = priceFontPx,
+                 IsBold = true,
+-                Width = availableWidth,
+-                Height = priceLineHeightPx
++                Width = 0,
++                Height = 0
+             });
+             currentY += priceLineHeightPx + sectionSpacingPx;
+ 
+@@ -944,6 +1037,7 @@ namespace BarTenderClone.ViewModels
+         [RelayCommand]
+         private void AddText()
+         {
++            SaveUndoState("Add text element");
+             var margins = LabelSizeHelper.GetSafeMarginsPixels();
+             double defaultFontSize = LabelSizeHelper.CalculateResponsiveFontSize(
+                 TemplateWidthInches, TemplateHeightInches, FontSizeCategory.Medium);
+@@ -955,8 +1049,8 @@ namespace BarTenderClone.ViewModels
+                 X = margins.left,
+                 Y = margins.top,
+                 FontSize = defaultFontSize,
+-                Width = Template.Width - margins.left - margins.right,
+-                Height = defaultFontSize * 2.5
++                Width = 0,
++                Height = 0
+             };
+ 
+             Elements.Add(newElement);
+@@ -967,6 +1061,7 @@ namespace BarTenderClone.ViewModels
+         [RelayCommand]
+         private void AddBarcode()
+         {
++            SaveUndoState("Add barcode element");
+             var margins = LabelSizeHelper.GetSafeMarginsPixels();
+             var (_, height) = LabelSizeHelper.CalculateResponsiveBarcodeSize(
+                 TemplateWidthInches, TemplateHeightInches);
+@@ -991,6 +1086,7 @@ namespace BarTenderClone.ViewModels
+         [RelayCommand]
+         private void AddImage()
+         {
++            SaveUndoState("Add image element");
+             var dialog = new OpenFileDialog
+             {
+                 Title = "Select logo or image",
+@@ -1217,6 +1313,7 @@ namespace BarTenderClone.ViewModels
+                         // Load elements
+                         foreach (var element in elements)
+                         {
++                            element.AutoMeasureSize();
+                             Elements.Add(element);
+                         }
+ 
+@@ -1559,31 +1656,24 @@ namespace BarTenderClone.ViewModels
+             }
+             finally
+             {
+-                IsLoadingData = false;
+-            }
+-        }
+-
+-        [RelayCommand]
+-        private async Task SyncLocationAsync()
+-        {
+-            try
+-            {
+-                StatusMessage = "Байршлын мэдээлэлг SAP-аас синк хийж байна...";
++                   StatusMessage = GetResourceString("MsgSyncLocationStart", "Байршлын мэдээллийг SAP-аас синк хийж байна...");
+                 var success = await _apiService.EnqueueBranchSyncAsync();
+                 if (success)
+                 {
+-                    StatusMessage = "Байршил синк хийх хүсэлт амжилттай илгээгдлээ.";
+-                    System.Windows.MessageBox.Show("Байршлын мэдээллийг SAP-аас синк хийх процесс эхэллээ. Түр хүлээгээд 'Fetch Data' дарж шалгана уу.", 
+-                        "Синк эхэллээ", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
++                    StatusMessage = GetResourceString("MsgSyncLocationSuccess", "Байршил синк хийх хүсэлт амжилттай илгээгдлээ.");
++                    System.Windows.MessageBox.Show(
++                        GetResourceString("MsgSyncLocationSuccessDetail", "Байршлын мэдээллийг SAP-аас синк хийх процесс эхэллээ. Түр хүлээгээд дахин шалгана уу."), 
++                        GetResourceString("MsgSyncTitle", "Синк эхэллээ"), 
++                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                 }
+                 else
+                 {
+-                    StatusMessage = "Байршил синк хийхэд алдаа гарлаа.";
++                    StatusMessage = GetResourceString("MsgSyncLocationError", "Байршил синк хийхэд алдаа гарлаа.");
+                 }
+             }
+             catch (Exception ex)
+             {
+-                StatusMessage = $"Алдаа: {ex.Message}";
++                StatusMessage = $"{GetResourceString("MsgSyncErrorPrefix", "Алдаа: ")}{ex.Message}";
+             }
+         }
+  
+@@ -1592,37 +1682,33 @@ namespace BarTenderClone.ViewModels
+         {
+             try
+             {
+-                StatusMessage = "Хөрөнгийн мэдээллийг SAP-аас синк хийж байна...";
++                StatusMessage = GetResourceString("MsgSyncAssetStart", "Хөрөнгийн мэдээллийг SAP-аас синк хийж байна...");
+                 var success = await _apiService.EnqueueEquipmentSyncAsync();
+                 if (success)
+                 {
+-                    StatusMessage = "Хөрөнгө синк хийх хүсэлт амжилттай илгээгдлээ.";
+-                    System.Windows.MessageBox.Show("Хөрөнгийн мэдээллийг SAP-аас синк хийх процесс эхэллээ. Түр хүлээгээд 'Fetch Data' дарж шалгана уу.", 
+-                        "Синк эхэллээ", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
++                    StatusMessage = GetResourceString("MsgSyncAssetSuccess", "Хөрөнгө синк хийх хүсэлт амжилттай илгээгдлээ.");
++                    System.Windows.MessageBox.Show(
++                        GetResourceString("MsgSyncAssetSuccessDetail", "Хөрөнгийн мэдээллийг SAP-аас синк хийх процесс эхэллээ. Түр хүлээгээд дахин шалгана уу."), 
++                        GetResourceString("MsgSyncTitle", "Синк эхэллээ"), 
++                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                 }
+                 else
+                 {
+-                    StatusMessage = "Хөрөнгө синк хийхэд алдаа гарлаа.";
++                    StatusMessage = GetResourceString("MsgSyncAssetError", "Хөрөнгө синк хийхэд алдаа гарлаа.");
+                 }
+             }
+             catch (Exception ex)
+             {
+-                StatusMessage = $"Алдаа: {ex.Message}";
+-            }
+-        }
+-
+-        [RelayCommand]
+-        private async Task MarkAsPrintedAsync()
+-        {
+-            if (!SelectedProducts.Any() && SelectedProduct == null) 
++                StatusMessage = $"{GetResourceString("MsgSyncErrorPrefix", "Алдаа: ")}{ex.Message}";
++            }оцесс эхэллээ. Түр хүлээгээд 'Fetch Data' дарж шалгана уу.", 
+            if (!SelectedProducts.Any() && SelectedProduct == null) 
+             {
+-                StatusMessage = "Бараа сонгогдоогүй байна.";
++                StatusMessage = GetResourceString("MsgNoProductSelected", "Бараа сонгогдоогүй байна.");
+                 return;
+             }
+  
+             try
+             {
+-                StatusMessage = "Хэвлэсэн төлөвт оруулж байна...";
++                StatusMessage = GetResourceString("MsgSettingPrintedState", "Хэвлэсэн төлөвт оруулж байна...");
+                 var items = SelectedProducts.Any() ? SelectedProducts.ToList() : new List<ResourceItem> { SelectedProduct! };
+                 
+                 int successCount = 0;
+@@ -1635,6 +1721,20 @@ namespace BarTenderClone.ViewModels
+                     }
+                 }
+                 
++                string formatStr = GetResourceString("MsgSetPrintedStateSuccess", "{0} барааг хэвлэсэн төлөвт орууллаа.");
++                StatusMessage = string.Format(formatStr, successCount);
++            }
++            catch (Exception ex)
++            {
++                StatusMessage = $"{GetResourceString("MsgSyncErrorPrefix", "Алдаа: ")}{ex.Message}";
++            }Product! };
++                
++                int successCount = 0;
++                foreach (var item in items)
++                {
++                    var success = await SyncPrintStatusAsync(item, true, DateTime.Now);
++                    if (success)
++                    {
+                 StatusMessage = $"{successCount} барааг хэвлэсэн төлөвт орууллаа.";
+             }
+             catch (Exception ex)
+@@ -1656,28 +1756,28 @@ namespace BarTenderClone.ViewModels
+             {
+                 // Get a short description for the warning message
+                 string elementDesc = element.Type == ElementType.Barcode
+-                    ? "Barcode"
++                    ? GetResourceString("ElementType_Barcode", "Barcode")
+                     : (element.Content?.Length > 20
+                         ? element.Content.Substring(0, 20) + "..."
+-                        : element.Content ?? "Text element");
++                        : element.Content ?? GetResourceString("ElementType_Text", "Text"));
+  
+                 // WYSIWYG mode: Only warn if element is COMPLETELY outside the template
+                 // (not just touching margins, since preview shows exact print area)
+                 if (element.X < 0)
+-                    warnings.Add($"'{elementDesc}' starts before left edge (will be clamped in print)");
++                    warnings.Add(string.Format(GetResourceString("ValWarningLeft", "'{0}' starts before left edge (will be clamped in print)"), elementDesc));
+  
+                 if (element.Y < 0)
+-                    warnings.Add($"'{elementDesc}' starts above top edge (will be clamped in print)");
++                    warnings.Add(string.Format(GetResourceString("ValWarningTop", "'{0}' starts above top edge (will be clamped in print)"), elementDesc));
+  
+                 if (element.X + element.Width > Template.Width + 10)
+-                    warnings.Add($"'{elementDesc}' extends beyond right edge (may be cropped)");
++                    warnings.Add(string.Format(GetResourceString("ValWarningRight", "'{0}' extends beyond right edge (may be cropped)"), elementDesc));
+  
+                 if (element.Y + element.Height > Template.Height + 10)
+-                    warnings.Add($"'{elementDesc}' extends beyond bottom edge (may be cropped)");
++                    warnings.Add(string.Format(GetResourceString("ValWarningBottom", "'{0}' extends beyond bottom edge (may be cropped)"), elementDesc));
+  
+                 // Check font size minimum - only warn if extremely small (<4px after scale)
+                 if (element.Type == ElementType.Text && element.FontSize < 4)
+-                    warnings.Add($"'{elementDesc}' has font size {element.FontSize:F0}px (may be unreadable)");
++                    warnings.Add(string.Format(GetResourceString("ValWarningFontSize", "'{0}' has font size {1:F0}px (may be unreadable)"), elementDesc, element.FontSize));
+             }
+ 
+             return warnings;
+@@ -1859,16 +1959,16 @@ namespace BarTenderClone.ViewModels
+         {
+             if (string.IsNullOrEmpty(SelectedPrinter))
+             {
+-                StatusMessage = "Please select a printer.";
+-                System.Windows.MessageBox.Show("Please select a printer first.", "No Printer",
++                StatusMessage = GetResourceString("MsgPleaseSelectPrinter", "Please select a printer.");
++                System.Windows.MessageBox.Show(GetResourceString("MsgPleaseSelectPrinter", "Please select a printer first."), GetResourceString("MsgNoPrinterTitle", "No Printer"),
+                     System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                 return;
+             }
+ 
+             if (!Elements.Any())
+             {
+-                StatusMessage = "Please add elements to the canvas before printing.";
+-                System.Windows.MessageBox.Show("Please add elements to the label canvas first.", "No Elements",
++                StatusMessage = GetResourceString("MsgPleaseAddElements", "Please add elements to the canvas before printing.");
++                System.Windows.MessageBox.Show(GetResourceString("MsgPleaseAddElementsFirst", "Please add elements to the label canvas first."), GetResourceString("MsgNoElementsTitle", "No Elements"),
+                     System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                 return;
+             }
+@@ -1877,25 +1977,25 @@ namespace BarTenderClone.ViewModels
+             var warnings = ValidateLabelElements();
+             if (warnings.Any())
+             {
+-                var warningMessage = "Layout validation detected potential issues:\n\n" +
++                var warningMessage = GetResourceString("MsgLayoutWarningPrefix", "Layout validation detected potential issues:\n\n") +
+                                    string.Join("\n", warnings.Take(5));
+ 
+                 if (warnings.Count > 5)
+                 {
+-                    warningMessage += $"\n\n...and {warnings.Count - 5} more issue(s)";
++                    warningMessage += string.Format(GetResourceString("MsgLayoutWarningAndMore", "\n\n...and {0} more issue(s)"), warnings.Count - 5);
+                 }
+ 
+-                warningMessage += "\n\nContinue printing anyway?";
++                warningMessage += GetResourceString("MsgLayoutWarningContinue", "\n\nContinue printing anyway?");
+ 
+                 var result = System.Windows.MessageBox.Show(
+                     warningMessage,
+-                    "Layout Validation Warning",
++                    GetResourceString("MsgLayoutWarningTitle", "Layout Validation Warning"),
+                     System.Windows.MessageBoxButton.YesNo,
+                     System.Windows.MessageBoxImage.Warning);
+ 
+                 if (result != System.Windows.MessageBoxResult.Yes)
+                 {
+-                    StatusMessage = "Print cancelled due to layout warnings.";
++                    StatusMessage = GetResourceString("StatusPrintCancelled", "Print cancelled.");
+                     return;
+                 }
+             }
+@@ -1910,18 +2010,18 @@ namespace BarTenderClone.ViewModels
+                 if (printedItems.Any())
+                 {
+                     string message = printedItems.Count == 1
+-                        ? $"'{printedItems[0].ProductName}' нь өмнө нь хэвлэгдсэн байна.\n\nДахин хэвлэх үү?"
+-                        : $"Сонгосон бараануудын дотор өмнө нь хэвлэгдсэн {printedItems.Count} бараа байна.\n\nБүгдийг нь дахин хэвлэх үү?";
++                        ? string.Format(GetResourceString("MsgPrintedWarning", "'{0}' нь өмнө нь хэвлэгдсэн байна.\n\nДахин хэвлэх үү?"), printedItems[0].ProductName)
++                        : string.Format(GetResourceString("MsgPrintedWarningMultiple", "Сонгосон бараануудын дотор өмнө нь хэвлэгдсэн {0} бараа байна.\n\nБүгдийг нь дахин хэвлэх үү?"), printedItems.Count);
+ 
+                     var result = System.Windows.MessageBox.Show(
+                         message,
+-                        "Хэвлэгдсэн бараа",
++                        GetResourceString("MsgPrintedWarningTitle", "Хэвлэгдсэн бараа"),
+                         System.Windows.MessageBoxButton.YesNo,
+                         System.Windows.MessageBoxImage.Question);
+ 
+                     if (result != System.Windows.MessageBoxResult.Yes)
+                     {
+-                        StatusMessage = "Print cancelled (already printed items).";
++                        StatusMessage = GetResourceString("StatusPrintCancelled", "Print cancelled.");
+                         return;
+                     }
+                 }
+@@ -2033,6 +2133,24 @@ namespace BarTenderClone.ViewModels
+                 printerConfig
+             );
+ 
++
++            // Save to Print History
++            var historyEntry = new BarTenderClone.Models.PrintHistoryEntry
++            {
++                ProductCode = effectiveDataSource?.Code ?? string.Empty,
++                ProductName = effectiveDataSource?.ProductName ?? "Manual Label",
++                RfidData = result.RfidEncoded == true && result.LabelResults != null 
++                    ? string.Join(", ", result.LabelResults.Where(l => l.Success).Select(l => l.RfidData)) 
++                    : string.Empty,
++                QuantityRequested = Quantity,
++                QuantitySucceeded = result.HasDetailedTracking ? result.LabelsSucceeded : (result.Success ? Quantity : 0),
++                PrinterName = SelectedPrinter ?? string.Empty,
++                TemplateName = "Default",
++                ErrorMessage = result.ErrorMessage ?? string.Empty
++            };
++            
++            await _printHistoryService.SaveEntryAsync(historyEntry);
++
+             if (result.Success)
+             {
+                 if (result.HasDetailedTracking)
+@@ -2246,6 +2364,27 @@ namespace BarTenderClone.ViewModels
+             int totalLabelsSucceeded = batchResult.ItemResults.Sum(ir => ir.QuantitySucceeded);
+             int totalLabelsFailed = batchResult.ItemResults.Sum(ir => ir.QuantityRequested - ir.QuantitySucceeded);
+ 
++
++            // Save to Print History
++            foreach (var itemResult in batchResult.ItemResults)
++            {
++                var historyEntry = new BarTenderClone.Models.PrintHistoryEntry
++                {
++                    ProductCode = itemResult.Item.Code ?? string.Empty,
++                    ProductName = itemResult.Item.ProductName ?? string.Empty,
++                    RfidData = itemResult.LabelResults != null 
++                        ? string.Join(", ", itemResult.LabelResults.Where(l => l.Success).Select(l => l.RfidData)) 
++                        : string.Empty,
++                    QuantityRequested = itemResult.QuantityRequested,
++                    QuantitySucceeded = itemResult.QuantitySucceeded,
++                    PrinterName = SelectedPrinter ?? string.Empty,
++                    TemplateName = "Default",
++                    ErrorMessage = itemResult.Result.ErrorMessage ?? string.Empty
++                };
++                
++                await _printHistoryService.SaveEntryAsync(historyEntry);
++            }
++
+             if (batchResult.AllSucceeded)
+             {
+                 StatusMessage = $"Batch complete: {totalLabelsSucceeded} labels printed successfully!";
+@@ -2429,7 +2568,7 @@ namespace BarTenderClone.ViewModels
+ 
+         private void RefreshResourceMetadata(IEnumerable<ResourceItem> products)
+         {
+-            var profile = _resourceMetadataService.BuildProfile(products);
++            var profile = _metadataService.BuildProfile(products);
+ 
+             ReplaceCollection(AvailableFields, profile.BindableFields);
+             ReplaceCollection(ProductGridColumns, profile.GridColumns);

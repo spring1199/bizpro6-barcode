@@ -127,6 +127,11 @@ namespace BarTenderClone.Services
             var offsetY = applyCalibration ? LabelSizeHelper.MmToDots(config.CalibrationOffsetYmm, config.Dpi) : 0;
 
             var visual = new DrawingVisual();
+            RenderOptions.SetEdgeMode(visual, EdgeMode.Aliased);
+            RenderOptions.SetBitmapScalingMode(visual, BitmapScalingMode.NearestNeighbor);
+            TextOptions.SetTextRenderingMode(visual, TextRenderingMode.Aliased);
+            TextOptions.SetTextFormattingMode(visual, TextFormattingMode.Display);
+
             using (var dc = visual.RenderOpen())
             {
                 dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, widthDots, heightDots));

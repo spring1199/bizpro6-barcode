@@ -8,7 +8,12 @@ namespace BarTenderClone.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is int i) return (i + 1).ToString();
+            int offset = 1;
+            if (parameter != null && int.TryParse(parameter.ToString(), out var p))
+            {
+                offset = p;
+            }
+            if (value is int i) return (i + offset).ToString();
             return value?.ToString() ?? "";
         }
 

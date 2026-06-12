@@ -287,10 +287,21 @@ namespace BarTenderClone.Helpers
 
             while ((DateTime.Now - startTime).TotalMilliseconds < timeoutMs)
             {
-                var (success, status, statusText, _) = GetJobStatus(printerName, jobId);
+                var (success, status, statusText, win32Error) = GetJobStatus(printerName, jobId);
 
                 if (!success)
                 {
+                    // Check if error is 1804 (ERROR_INVALID_JOB_ID).
+                    // If it is, and we have already spooled, the job was printed and removed from queue.
+                    if (win32Error == 1804)
+                    {
+                        return new PrintResult
+                        {
+                            Success = true,
+                            JobId = jobId
+                        };
+                    }
+
                     return new PrintResult
                     {
                         Success = false,

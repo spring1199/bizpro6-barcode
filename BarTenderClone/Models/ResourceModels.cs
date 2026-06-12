@@ -520,33 +520,56 @@ namespace BarTenderClone.Models
             _ => "⚪"
         };
 
+        private string GetResourceString(string key, string defaultValue)
+        {
+            if (Application.Current == null) return defaultValue;
+            return Application.Current.TryFindResource(key) as string ?? defaultValue;
+        }
+
+        public void RefreshLocalization()
+        {
+            OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(StatusDisplay));
+            OnPropertyChanged(nameof(RfidStatusText));
+            OnPropertyChanged(nameof(StatusBrush));
+            OnPropertyChanged(nameof(StatusTextBrush));
+        }
+
         [JsonIgnore]
         public string StatusText => PrintStatus switch
         {
-            PrintStatus.Printed => "Printed",
-            PrintStatus.Error => "Error",
-            _ => "Not Printed"
+            PrintStatus.Printed => GetResourceString("StatusPrinted", "Printed"),
+            PrintStatus.Error => GetResourceString("StatusError", "Error"),
+            _ => GetResourceString("StatusNotPrinted", "Not Printed")
         };
 
         [JsonIgnore]
         public Brush StatusBrush
         {
-            get => PrintStatus switch
+            get
             {
-                PrintStatus.Printed => (Brush)Application.Current.FindResource("SuccessBrush"),
-                PrintStatus.Error => (Brush)Application.Current.FindResource("ErrorBrush"),
-                _ => Brushes.Transparent
-            };
+                if (Application.Current == null) return Brushes.Transparent;
+                return PrintStatus switch
+                {
+                    PrintStatus.Printed => Application.Current.TryFindResource("SuccessBrush") as Brush ?? Brushes.Green,
+                    PrintStatus.Error => Application.Current.TryFindResource("ErrorBrush") as Brush ?? Brushes.Red,
+                    _ => Brushes.Transparent
+                };
+            }
         }
 
         [JsonIgnore]
         public Brush StatusTextBrush
         {
-            get => PrintStatus switch
+            get
             {
-                PrintStatus.Printed or PrintStatus.Error => Brushes.White,
-                _ => (Brush)Application.Current.FindResource("TextSecondaryBrush")
-            };
+                if (Application.Current == null) return Brushes.Black;
+                return PrintStatus switch
+                {
+                    PrintStatus.Printed or PrintStatus.Error => Brushes.White,
+                    _ => Application.Current.TryFindResource("TextSecondaryBrush") as Brush ?? Brushes.Gray
+                };
+            }
         }
 
         [JsonIgnore]
@@ -555,12 +578,20 @@ namespace BarTenderClone.Models
             get
             {
                 if (!string.IsNullOrEmpty(PrintErrorMessage))
-                    return $"Error: {PrintErrorMessage}";
+                {
+                    string prefix = GetResourceString("StatusErrorPrefix", "Error: ");
+                    return $"{prefix}{PrintErrorMessage}";
+                }
                 if (IsPrinted && LastPrintedTime.HasValue)
-                    return $"Printed at {LastPrintedTime.Value:HH:mm:ss}";
+                {
+                    string printedAt = GetResourceString("StatusPrintedAt", "Printed at ");
+                    return $"{printedAt}{LastPrintedTime.Value:HH:mm:ss}";
+                }
                 if (IsPrinted)
-                    return "Printed";
-                return "Not Printed";
+                {
+                    return GetResourceString("StatusPrinted", "Printed");
+                }
+                return GetResourceString("StatusNotPrinted", "Not Printed");
             }
         }
 
@@ -572,18 +603,18 @@ namespace BarTenderClone.Models
         [JsonIgnore]
         public string RfidStatusText => RfidStatusCode switch
         {
-            0  => "Идэвхгүй",
-            1  => "Идэвхтэй",
-            2  => "Борлуулсан",
-            3  => "Бусад",
-            4  => "Гэмтэлтэй",
-            5  => "Хулгайд алдсан",
-            6  => "Актласан",
-            7  => "Бэлэглэсэн",
-            8  => "Шилжүүлсэн",
-            9  => "Буцаасан",
-            10 => "Түгээлтэнд гарсан",
-            _  => "—"
+            0  => GetResourceString("RfidStatus_0", "Идэвхгүй"),
+            1  => GetResourceString("RfidStatus_1", "Идэвхтэй"),
+            2  => GetResourceString("RfidStatus_2", "Борлуулсан"),
+            3  => GetResourceString("RfidStatus_3", "Бусад"),
+            4  => GetResourceString("RfidStatus_4", "Гэмтэлтэй"),
+            5  => GetResourceString("RfidStatus_5", "Хулгайд алдсан"),
+            6  => GetResourceString("RfidStatus_6", "Актласан"),
+            7  => GetResourceString("RfidStatus_7", "Бэлэглэсэн"),
+            8  => GetResourceString("RfidStatus_8", "Шилжүүлсэн"),
+            9  => GetResourceString("RfidStatus_9", "Буцаасан"),
+            10 => GetResourceString("RfidStatus_10", "Түгээлтэнд гарсан"),
+            _  => GetResourceString("RfidStatus_Unknown", "—")
         };
 
         [JsonIgnore]

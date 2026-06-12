@@ -5,9 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
-        Title="Load Template" Height="400" Width="500"
+        Title="{DynamicResource LoadTemplateTitle}" Height="400" Width="500"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="White">
+        Background="White"
+        FontFamily="pack://application:,,,/BizPro6Barcode;component/Fonts/#Inter, Segoe UI, sans-serif">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -23,7 +24,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Select a Template:" Style="{StaticResource SubsectionStyle}" Margin="0,0,0,12"/>
+        <TextBlock Grid.Row="0" Text="{DynamicResource SelectTemplateText}" Style="{StaticResource SubsectionStyle}" Margin="0,0,0,12"/>
 
         <Border Grid.Row="1" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
             <ListBox x:Name="TemplatesListBox" 
@@ -47,14 +48,14 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <Button Grid.Column="0" Content="Delete" Click="DeleteButton_Click"
+            <Button Grid.Column="0" Content="{DynamicResource BtnDelete}" Click="DeleteButton_Click"
                     Style="{StaticResource SecondaryButtonStyle}" 
                     Background="#FFF1F1" Foreground="#D32F2F" BorderBrush="#FFCDD2"/>
-
+ 
             <StackPanel Grid.Column="2" Orientation="Horizontal">
-                <Button Content="Cancel" Click="CancelButton_Click"
+                <Button Content="{DynamicResource BtnCancel}" Click="CancelButton_Click"
                         Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
-                <Button Content="Load" Click="LoadButton_Click"
+                <Button Content="{DynamicResource BtnLoad}" Click="LoadButton_Click"
                         Style="{StaticResource PrimaryButtonStyle}" IsDefault="True"/>
             </StackPanel>
         </Grid>

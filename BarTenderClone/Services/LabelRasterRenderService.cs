@@ -48,10 +48,12 @@ namespace BarTenderClone.Services
 
             var bytesPerRow = (width + 7) / 8;
             var totalBytes = bytesPerRow * height;
-            var hex = new StringBuilder(totalBytes * 2);
 
+            // Generate hex rows
+            var hexRows = new string[height];
             for (var y = 0; y < height; y++)
             {
+                var rowBuilder = new StringBuilder(bytesPerRow * 2);
                 for (var byteIndex = 0; byteIndex < bytesPerRow; byteIndex++)
                 {
                     var value = 0;
@@ -71,11 +73,124 @@ namespace BarTenderClone.Services
                             value |= 1 << (7 - bit);
                     }
 
-                    hex.Append(value.ToString("X2"));
+                    rowBuilder.Append(value.ToString("X2"));
                 }
+                hexRows[y] = rowBuilder.ToString();
             }
 
-            return $"^GFA,{totalBytes},{totalBytes},{bytesPerRow},{hex}";
+            // Compress rows
+            var compressed = new StringBuilder(totalBytes * 2);
+            string? previousRow = null;
+
+            for (var y = 0; y < height; y++)
+            {
+                string currentRow = hexRows[y];
+                if (currentRow == previousRow)
+                {
+                    compressed.Append(':');
+                }
+                else
+                {
+                    compressed.Append(CompressRow(currentRow));
+                }
+                previousRow = currentRow;
+            }
+
+            return $"^GFA,{totalBytes},{totalBytes},{bytesPerRow},{compressed}";
+        }
+
+        private static string CompressRow(string row)
+        {
+            // Find suffix of '0's and 'F's
+            int zeroSuffixStart = row.Length;
+            while (zeroSuffixStart > 0 && row[zeroSuffixStart - 1] == '0')
+            {
+                zeroSuffixStart--;
+            }
+
+            int fSuffixStart = row.Length;
+            while (fSuffixStart > 0 && (row[fSuffixStart - 1] == 'F' || row[fSuffixStart - 1] == 'f'))
+            {
+                fSuffixStart--;
+            }
+
+            string prefix;
+            char suffixChar = '\0';
+
+            if (zeroSuffixStart < fSuffixStart)
+            {
+                prefix = row.Substring(0, zeroSuffixStart);
+                suffixChar = ',';
+            }
+            else if (fSuffixStart < zeroSuffixStart)
+            {
+                prefix = row.Substring(0, fSuffixStart);
+                suffixChar = '!';
+            }
+            else
+            {
+                prefix = row;
+            }
+
+            var encoded = new StringBuilder();
+            int i = 0;
+            int length = prefix.Length;
+            while (i < length)
+            {
+                char c = prefix[i];
+                int count = 1;
+                while (i + count < length && prefix[i + count] == c)
+                {
+                    count++;
+                }
+
+                AppendCompressedRun(encoded, c, count);
+                i += count;
+            }
+
+            if (suffixChar != '\0')
+            {
+                encoded.Append(suffixChar);
+            }
+
+            return encoded.ToString();
+        }
+
+        private static void AppendCompressedRun(StringBuilder sb, char c, int count)
+        {
+            if (count == 1)
+            {
+                sb.Append(c);
+                return;
+            }
+            if (count == 2)
+            {
+                sb.Append(c).Append(c);
+                return;
+            }
+
+            int rem = count;
+            while (rem >= 400)
+            {
+                sb.Append('z');
+                rem -= 400;
+            }
+
+            if (rem >= 20)
+            {
+                int mult20 = (rem / 20) * 20;
+                char code = (char)('g' - 1 + (mult20 / 20));
+                sb.Append(code);
+                rem -= mult20;
+            }
+
+            if (rem > 0)
+            {
+                char code = (char)('G' - 1 + rem);
+                sb.Append(code);
+            }
+
+            sb.Append(c);
         }
     }
 }

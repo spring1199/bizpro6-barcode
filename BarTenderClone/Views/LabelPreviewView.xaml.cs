@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -17,6 +18,19 @@ namespace BarTenderClone.Views
         private Point? _panStartPoint;
         private Point? _panStartOffset;
         private ResizeDragState? _resizeDragState;
+        private bool _moveDragSavedUndo;
+        
+        // Move drag state tracking
+        private double _dragStartX;
+        private double _dragStartY;
+        private Point _dragStartMouse;
+
+        // Rotation state tracking
+        private double _rotateStartAngle;
+        private int _rotateStartRotationDegrees;
+
+        // Alignment guide adorner
+        private AlignmentGuideAdorner? _alignmentGuideAdorner;
 
         // Ctrl+Click range select tracking
         private int _lastSelectedIndex = -1;
@@ -31,7 +45,16 @@ namespace BarTenderClone.Views
                 ProductGrid.AutoGenerateColumns = false;
             }
 
-            Loaded += (s, e) => Focus();
+            Loaded += (s, e) =>
+            {
+                Focus();
+                var adornerLayer = AdornerLayer.GetAdornerLayer(LabelCard);
+                if (adornerLayer != null)
+                {
+                    _alignmentGuideAdorner = new AlignmentGuideAdorner(LabelCard);
+                    adornerLayer.Add(_alignmentGuideAdorner);
+                }
+            };
 
             // Attach zoom event handler
             CanvasScrollViewer.PreviewMouseWheel += CanvasScrollViewer_PreviewMouseWheel;
@@ -42,24 +65,84 @@ namespace BarTenderClone.Views
             CanvasScrollViewer.PreviewMouseUp += CanvasScrollViewer_PreviewMouseUp;
         }
 
+        private double _accumulatedDragX;
+        private double _accumulatedDragY;
+
+        private void Thumb_DragStarted(object sender, DragStartedEventArgs e)
+        {
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element)
+            {
+                _dragStartX = element.X;
+                _dragStartY = element.Y;
+                _accumulatedDragX = 0;
+                _accumulatedDragY = 0;
+                _moveDragSavedUndo = false;
+            }
+        }
+
         private void Thumb_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb thumb &&
                 thumb.DataContext is LabelElement element &&
                 DataContext is LabelPreviewViewModel viewModel)
             {
-                DesignerInteractionHelper.CommitMeasuredLocalSize(element);
-                DesignerInteractionHelper.MoveElement(
+                // Save undo state on first drag delta (before position changes)
+                if (!_moveDragSavedUndo)
+                {
+                    viewModel.SaveUndoState("Move element");
+                    _moveDragSavedUndo = true;
+                }
+
+                _accumulatedDragX += e.HorizontalChange;
+                _accumulatedDragY += e.VerticalChange;
+
+                DesignerInteractionHelper.MoveElementAbsolute(
                     element,
                     viewModel.Template,
-                    e.HorizontalChange,
-                    e.VerticalChange,
-                    viewModel.CurrentZoom);
+                    _dragStartX,
+                    _dragStartY,
+                    _accumulatedDragX,
+                    _accumulatedDragY,
+                    viewModel.CurrentZoom,
+                    viewModel.PrinterDpi);
+
+                if (_alignmentGuideAdorner != null)
+                {
+                    // Calculate visual bounds of the moved element
+                    var local = DesignerInteractionHelper.GetLocalSize(element);
+                    var visualBounds = DesignerInteractionHelper.GetVisualBounds(element.X, element.Y, local.Width, local.Height, element.RotationDegrees);
+
+                    var result = _alignmentGuideAdorner.UpdateGuides(
+                        element,
+                        viewModel.Elements,
+                        viewModel.Template.Width,
+                        viewModel.Template.Height,
+                        viewModel.CurrentZoom);
+
+                    if (result.SnappedX.HasValue)
+                    {
+                        var deltaX = result.SnappedX.Value - visualBounds.Left;
+                        element.X += deltaX;
+                    }
+                    if (result.SnappedY.HasValue)
+                    {
+                        var deltaY = result.SnappedY.Value - visualBounds.Top;
+                        element.Y += deltaY;
+                    }
+                }
             }
+        }
+
+        private void Thumb_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            _alignmentGuideAdorner?.ClearGuides();
+            e.Handled = true;
         }
 
         private void Thumb_MouseDown(object sender, MouseButtonEventArgs e)
         {
+            _moveDragSavedUndo = false; // Reset for new drag
             if (sender is Thumb thumb &&
                 thumb.DataContext is LabelElement element &&
                 DataContext is LabelPreviewViewModel viewModel)
@@ -84,11 +167,14 @@ namespace BarTenderClone.Views
                 thumb.Tag is string tag &&
                 Enum.TryParse<ResizeHandleDirection>(tag, out var handle))
             {
-                DesignerInteractionHelper.CommitMeasuredLocalSize(element);
+                // Save undo state before resize begins
                 if (DataContext is LabelPreviewViewModel viewModel)
                 {
+                    viewModel.SaveUndoState("Resize element");
                     DesignerInteractionHelper.ClampElementToTemplate(element, viewModel.Template);
                 }
+
+                DesignerInteractionHelper.CommitMeasuredLocalSize(element);
 
                 var local = DesignerInteractionHelper.GetLocalSize(element);
                 _resizeDragState = new ResizeDragState(
@@ -100,6 +186,8 @@ namespace BarTenderClone.Views
                     local.Height,
                     element.FontSize,
                     element.RotationDegrees);
+
+                _dragStartMouse = Mouse.GetPosition(LabelCard);
 
                 e.Handled = true;
             }
@@ -129,7 +217,8 @@ namespace BarTenderClone.Views
                         element.RotationDegrees);
                 }
 
-                _resizeDragState.CumulativeDelta += new Vector(e.HorizontalChange, e.VerticalChange);
+                Point currentMouse = Mouse.GetPosition(LabelCard);
+                Vector cumulativeDelta = currentMouse - _dragStartMouse;
 
                 DesignerInteractionHelper.ResizeElementFromSnapshot(
                     element,
@@ -141,8 +230,9 @@ namespace BarTenderClone.Views
                     _resizeDragState.StartHeight,
                     _resizeDragState.StartFontSize,
                     _resizeDragState.StartRotationDegrees,
-                    _resizeDragState.CumulativeDelta,
-                    viewModel.CurrentZoom);
+                    cumulativeDelta,
+                    viewModel.CurrentZoom,
+                    viewModel.PrinterDpi);
 
                 e.Handled = true;
             }
@@ -154,12 +244,144 @@ namespace BarTenderClone.Views
             e.Handled = true;
         }
 
+        private void ResizeHandle_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element &&
+                DataContext is LabelPreviewViewModel viewModel)
+            {
+                var direction = thumb.Tag as string;
+                if (string.IsNullOrEmpty(direction))
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                viewModel.SaveUndoState("Reset element size constraints");
+
+                bool isWidth = false;
+                bool isHeight = false;
+
+                switch (direction)
+                {
+                    case "TopLeft":
+                    case "TopRight":
+                    case "BottomLeft":
+                    case "BottomRight":
+                        isWidth = true;
+                        isHeight = true;
+                        break;
+                    case "Left":
+                    case "Right":
+                        isWidth = true;
+                        break;
+                    case "Top":
+                    case "Bottom":
+                        isHeight = true;
+                        break;
+                }
+
+                if (isWidth)
+                {
+                    element.IsAutoWidth = true;
+                }
+                if (isHeight)
+                {
+                    element.IsAutoHeight = true;
+                }
+
+                element.AutoMeasureSize();
+                e.Handled = true;
+            }
+        }
+
+        private void RotateHandle_DragStarted(object sender, DragStartedEventArgs e)
+        {
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element &&
+                DataContext is LabelPreviewViewModel viewModel)
+            {
+                viewModel.SaveUndoState("Rotate element");
+                DesignerInteractionHelper.CommitMeasuredLocalSize(element);
+
+                var local = DesignerInteractionHelper.GetLocalSize(element);
+                double centerX = element.X + local.Width / 2;
+                double centerY = element.Y + local.Height / 2;
+
+                Point mousePos = Mouse.GetPosition(LabelCard);
+                double dx = mousePos.X - centerX;
+                double dy = mousePos.Y - centerY;
+
+                _rotateStartAngle = Math.Atan2(dy, dx) * (180.0 / Math.PI);
+                _rotateStartRotationDegrees = element.RotationDegrees;
+
+                e.Handled = true;
+            }
+        }
+
+        private void RotateHandle_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb thumb &&
+                thumb.DataContext is LabelElement element &&
+                DataContext is LabelPreviewViewModel viewModel)
+            {
+                var local = DesignerInteractionHelper.GetLocalSize(element);
+                double centerX = element.X + local.Width / 2;
+                double centerY = element.Y + local.Height / 2;
+
+                Point mousePos = Mouse.GetPosition(LabelCard);
+                double dx = mousePos.X - centerX;
+                double dy = mousePos.Y - centerY;
+
+                if (Math.Abs(dx) < 0.5 && Math.Abs(dy) < 0.5)
+                    return;
+
+                double currentAngle = Math.Atan2(dy, dx) * (180.0 / Math.PI);
+                double deltaAngle = currentAngle - _rotateStartAngle;
+
+                double targetRotation = (_rotateStartRotationDegrees + deltaAngle) % 360;
+                if (targetRotation < 0)
+                    targetRotation += 360;
+
+                int snappedRotation = ((int)Math.Round(targetRotation / 90.0) * 90) % 360;
+                element.RotationDegrees = snappedRotation;
+                e.Handled = true;
+            }
+        }
+
+        private void RotateHandle_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            e.Handled = true;
+        }
+
         private void UserControl_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Delete && DataContext is BarTenderClone.ViewModels.LabelPreviewViewModel viewModel)
+            if (DataContext is not BarTenderClone.ViewModels.LabelPreviewViewModel viewModel)
+                return;
+
+            // Undo: Ctrl+Z
+            if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                viewModel.UndoCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+
+            // Redo: Ctrl+Y or Ctrl+Shift+Z
+            if ((e.Key == Key.Y && Keyboard.Modifiers == ModifierKeys.Control) ||
+                (e.Key == Key.Z && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift)))
+            {
+                viewModel.RedoCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+
+            // Delete selected element
+            if (e.Key == Key.Delete)
             {
                 if (viewModel.SelectedElement != null)
                 {
+                    viewModel.SaveUndoState("Delete element");
                     viewModel.Elements.Remove(viewModel.SelectedElement);
                     viewModel.SelectedElement = null;
                     e.Handled = true;
@@ -200,64 +422,32 @@ namespace BarTenderClone.Views
             if (Math.Abs(newZoom - oldZoom) < 0.001)
                 return; // Already at min/max
 
-            // Get mouse position relative to label card BEFORE zoom
-            Point mousePos = e.GetPosition(LabelCard);
+            // Get mouse position relative to ScrollViewer viewport
+            Point mouseInViewer = e.GetPosition(CanvasScrollViewer);
 
-            // Calculate the content point under the cursor
-            double contentX = mousePos.X / oldZoom;
-            double contentY = mousePos.Y / oldZoom;
+            // Calculate the content-space point under the cursor before zoom
+            double contentX = (CanvasScrollViewer.HorizontalOffset + mouseInViewer.X) / oldZoom;
+            double contentY = (CanvasScrollViewer.VerticalOffset + mouseInViewer.Y) / oldZoom;
 
-            // Apply zoom with smooth animation
-            AnimateZoom(newZoom);
+            // Apply zoom (LayoutTransform updates layout automatically)
+            viewModel.CurrentZoom = newZoom;
 
-            // After animation starts, adjust scroll offset to maintain cursor position
-            // We need to do this after a short delay to let the animation begin
+            // After layout updates, adjust scroll offset to keep the same content point under the cursor
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // Calculate how much the content point has moved in screen space
-                double newMouseX = contentX * newZoom;
-                double newMouseY = contentY * newZoom;
+                double newOffsetX = contentX * newZoom - mouseInViewer.X;
+                double newOffsetY = contentY * newZoom - mouseInViewer.Y;
 
-                // Calculate the scroll offset adjustment needed
-                double offsetX = newMouseX - mousePos.X;
-                double offsetY = newMouseY - mousePos.Y;
-
-                // Adjust scroll position
-                CanvasScrollViewer.ScrollToHorizontalOffset(CanvasScrollViewer.HorizontalOffset + offsetX);
-                CanvasScrollViewer.ScrollToVerticalOffset(CanvasScrollViewer.VerticalOffset + offsetY);
-            }), System.Windows.Threading.DispatcherPriority.Render);
+                CanvasScrollViewer.ScrollToHorizontalOffset(Math.Max(0, newOffsetX));
+                CanvasScrollViewer.ScrollToVerticalOffset(Math.Max(0, newOffsetY));
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
-        private void AnimateZoom(double targetZoom)
-        {
-            var duration = TimeSpan.FromMilliseconds(150);
-            var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
-
-            var animX = new DoubleAnimation
-            {
-                To = targetZoom,
-                Duration = duration,
-                EasingFunction = easing
-            };
-
-            var animY = new DoubleAnimation
-            {
-                To = targetZoom,
-                Duration = duration,
-                EasingFunction = easing
-            };
-
-            ZoomTransform.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, animX);
-            ZoomTransform.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, animY);
-
-            // Update ViewModel (triggers ZoomPercentage update)
-            if (DataContext is BarTenderClone.ViewModels.LabelPreviewViewModel viewModel)
-            {
-                viewModel.CurrentZoom = targetZoom;
-            }
-        }
+        // AnimateZoom is no longer needed since LayoutTransform binds directly to CurrentZoom.
+        // Zoom changes are instant via the ViewModel property, which is responsive enough.
 
         #endregion
+
 
         #region Pan Functionality
 
@@ -412,6 +602,10 @@ namespace BarTenderClone.Views
                     if (products != null)
                     {
                         _lastSelectedIndex = products.IndexOf(item);
+                    }
+                    if (vm != null && item.IsSelected)
+                    {
+                        vm.SelectedProduct = item;
                     }
                     e.Handled = true;
                 }

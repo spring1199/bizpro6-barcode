@@ -318,7 +318,8 @@ internal static class Program
             cornerScaledText.FontSize,
             cornerScaledText.RotationDegrees,
             new System.Windows.Vector(50, 15),
-            1.0);
+            1.0,
+            203);
         AssertAlmost(15, cornerScaledText.FontSize, "text corner resize scales font size");
 
         var sideResizedText = new LabelElement
@@ -342,7 +343,8 @@ internal static class Program
             sideResizedText.FontSize,
             sideResizedText.RotationDegrees,
             new System.Windows.Vector(50, 0),
-            1.0);
+            1.0,
+            203);
         AssertAlmost(10, sideResizedText.FontSize, "text side resize keeps font size");
 
         var driftText = new LabelElement
@@ -626,7 +628,8 @@ internal static class Program
             element.FontSize,
             element.RotationDegrees,
             screenDelta,
-            1.0);
+            1.0,
+            203);
 
         var afterAnchor = GetOppositeAnchor(element, handle);
         AssertAlmost(beforeAnchor.X, afterAnchor.X, $"{rotation}/{handle} opposite anchor X");

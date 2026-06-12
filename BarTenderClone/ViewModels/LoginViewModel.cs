@@ -34,6 +34,12 @@ namespace BarTenderClone.ViewModels
         public LoginViewModel(IAuthenticationService authService)
         {
             _authService = authService;
+
+            // Subscribe to language changes using weak event manager
+            System.Windows.WeakEventManager<Helpers.LanguageHelper, System.EventArgs>.AddHandler(
+                null, 
+                nameof(Helpers.LanguageHelper.LanguageChanged), 
+                OnLanguageChanged);
         }
 
         [RelayCommand]
@@ -48,7 +54,9 @@ namespace BarTenderClone.ViewModels
 
                 if (string.IsNullOrWhiteSpace(TenancyName) || string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(password))
                 {
-                    ErrorMessage = "Please fill in all fields.";
+                    _lastErrorKey = "ErrFillFields";
+                    _lastErrorParam = string.Empty;
+                    ErrorMessage = GetResourceString(_lastErrorKey, "Please fill in all fields.");
                     return;
                 }
 
@@ -60,16 +68,50 @@ namespace BarTenderClone.ViewModels
                 }
                 else
                 {
-                    ErrorMessage = "Login failed. Check credentials.";
+                    _lastErrorKey = "ErrLoginFailed";
+                    _lastErrorParam = string.Empty;
+                    ErrorMessage = GetResourceString(_lastErrorKey, "Login failed. Check credentials.");
                 }
             }
             catch (Exception ex)
             {
-                ErrorMessage = $"An error occurred: {ex.Message}";
+                _lastErrorKey = "ErrAnErrorOccurred";
+                _lastErrorParam = ex.Message;
+                ErrorMessage = $"{GetResourceString(_lastErrorKey, "An error occurred: ")}{ex.Message}";
             }
             finally
             {
                 IsBusy = false;
+            }
+        }
+
+        private string _lastErrorKey = string.Empty;
+        private string _lastErrorParam = string.Empty;
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(_lastErrorKey))
+            {
+                var baseStr = GetResourceString(_lastErrorKey, string.Empty);
+                ErrorMessage = baseStr + _lastErrorParam;
+            }
+        }
+
+        private string GetResourceString(string key, string fallback)
+        {
+            if (System.Windows.Application.Current == null) return fallback;
+            if (System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                var val = System.Windows.Application.Current.TryFindResource(key);
+                return val as string ?? fallback;
+            }
+            else
+            {
+                return System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var val = System.Windows.Application.Current.TryFindResource(key);
+                    return val as string ?? fallback;
+                });
             }
         }
     }

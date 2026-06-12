@@ -13,13 +13,13 @@ namespace BarTenderClone.Helpers
     {
         public const double MinElementWidth = 20;
         public const double MinElementHeight = 10;
-        public const double TextRenderInset = 4;
-        public const double SelectionChromePadding = 8;
+        public const double TextRenderInset = 0;
+        public const double SelectionChromePadding = 0;
 
         private const double SnapThresholdScreenPixels = 6;
         private const double MinTextFontSize = 6;
         private const double MaxTextFontSize = 72;
-        private const double TextMeasurePaddingFactor = 0.8;
+        private const double TextMeasurePaddingFactor = 0.0;
 
         public static Vector RotateVector(Vector vector, double degrees)
         {
@@ -30,6 +30,45 @@ namespace BarTenderClone.Helpers
             return new Vector(
                 (vector.X * cos) - (vector.Y * sin),
                 (vector.X * sin) + (vector.Y * cos));
+        }
+
+        public static (double Width, double Height) MeasureActualTextSize(string content, double fontSize, bool isBold)
+        {
+            var effectiveFontSize = Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR;
+            var safeContent = string.IsNullOrEmpty(content) ? " " : content;
+            try
+            {
+                var formattedText = new System.Windows.Media.FormattedText(
+                    safeContent,
+                    System.Globalization.CultureInfo.CurrentUICulture,
+                    System.Windows.FlowDirection.LeftToRight,
+                    new System.Windows.Media.Typeface(
+                        new System.Windows.Media.FontFamily("Segoe UI"),
+                        System.Windows.FontStyles.Normal,
+                        isBold ? System.Windows.FontWeights.Bold : System.Windows.FontWeights.Normal,
+                        System.Windows.FontStretches.Normal),
+                    effectiveFontSize,
+                    System.Windows.Media.Brushes.Black,
+                    1.0)
+                {
+                    Trimming = System.Windows.TextTrimming.None
+                };
+                
+                var padding = effectiveFontSize * TextMeasurePaddingFactor;
+                var w = Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace + padding * 2);
+                var h = Math.Ceiling(formattedText.Height + padding);
+                return (w, h);
+            }
+            catch
+            {
+                var averageCharWidth = Math.Max(4, effectiveFontSize * 0.55);
+                var padding = effectiveFontSize * TextMeasurePaddingFactor;
+                var lines = safeContent.Split('\n').Length;
+                var maxLineLen = safeContent.Split('\n').Max(l => l.Length);
+                var w = Math.Ceiling(maxLineLen * averageCharWidth + padding * 2);
+                var h = Math.Ceiling(lines * effectiveFontSize * 1.35 + padding);
+                return (w, h);
+            }
         }
 
         public static (double Width, double Height) GetLocalSize(LabelElement element)
@@ -52,17 +91,13 @@ namespace BarTenderClone.Helpers
             int rotationDegrees = 0)
         {
             var localWidth = type == ElementType.Text && width <= 0
-                ? ShouldWrapText(rotationDegrees)
-                    ? Math.Max(GetMinimumDisplayWidth(type, fontSize, content), MinElementWidth)
-                    : Math.Max(MeasureFullTextLineWidth(fontSize, content), MinElementWidth)
+                ? Math.Max(MeasureFullTextLineWidth(fontSize, content), MinElementWidth)
                 : Math.Max(width, MinElementWidth);
-            var minimumDisplayHeight = type == ElementType.Text
-                ? height > 0
-                    ? MinElementHeight
-                    : GetMinimumLineHeight(type, fontSize)
-                : height > 0
-                    ? MinElementHeight
-                    : GetMinimumDisplayHeight(localWidth, type, fontSize, content);
+
+            var minimumDisplayHeight = height > 0
+                ? MinElementHeight
+                : GetMinimumDisplayHeight(localWidth, type, fontSize, content);
+
             var localHeight = height > 0
                 ? Math.Max(height, minimumDisplayHeight)
                 : minimumDisplayHeight;
@@ -272,7 +307,7 @@ namespace BarTenderClone.Helpers
             var maxFontSize = Math.Max(1, fontSize * LabelSizeHelper.FONT_SCALING_FACTOR);
             var minReadableFontSize = Math.Max(1, MinTextFontSize * LabelSizeHelper.FONT_SCALING_FACTOR);
             var safeContent = string.IsNullOrEmpty(content) ? " " : content;
-            var wrapText = ShouldWrapText(rotationDegrees);
+            var wrapText = width > 0 && ShouldWrapText(rotationDegrees);
 
             var best = MeasureText(safeContent, maxFontSize, contentWidth, isBold, isCentered, wrapText);
             if (TextFits(best, contentWidth, contentHeight))
@@ -321,26 +356,54 @@ namespace BarTenderClone.Helpers
                 wrapText);
         }
 
-        public static bool ShouldWrapText(int rotationDegrees) => true;
+        public static bool ShouldWrapText(int rotationDegrees)
+        {
+            return true;
+        }
 
         public static void MoveElement(
             LabelElement element,
             LabelTemplate template,
             double deltaX,
             double deltaY,
-            double zoom)
+            double zoom,
+            int printerDpi)
         {
             var x = element.X + deltaX;
             var y = element.Y + deltaY;
             var local = GetLocalSize(element);
             var visualBounds = GetVisualBounds(x, y, local.Width, local.Height, element.RotationDegrees);
 
-            var snappedVisual = SnapPosition(visualBounds.Left, visualBounds.Top, visualBounds.Width, visualBounds.Height, template, zoom);
+            var snappedVisual = SnapPosition(visualBounds.Left, visualBounds.Top, visualBounds.Width, visualBounds.Height, template, zoom, printerDpi);
             visualBounds = new Rect(snappedVisual.x, snappedVisual.y, visualBounds.Width, visualBounds.Height);
             visualBounds = ClampPosition(visualBounds, template);
 
             element.X = x + (visualBounds.Left - GetVisualBounds(x, y, local.Width, local.Height, element.RotationDegrees).Left);
             element.Y = y + (visualBounds.Top - GetVisualBounds(x, y, local.Width, local.Height, element.RotationDegrees).Top);
+        }
+
+        public static void MoveElementAbsolute(
+            LabelElement element,
+            LabelTemplate template,
+            double startX,
+            double startY,
+            double totalDeltaX,
+            double totalDeltaY,
+            double zoom,
+            int printerDpi)
+        {
+            var x = startX + totalDeltaX;
+            var y = startY + totalDeltaY;
+            var local = GetLocalSize(element);
+            var visualBounds = GetVisualBounds(x, y, local.Width, local.Height, element.RotationDegrees);
+
+            var snappedVisual = SnapPosition(visualBounds.Left, visualBounds.Top, visualBounds.Width, visualBounds.Height, template, zoom, printerDpi);
+            visualBounds = new Rect(snappedVisual.x, snappedVisual.y, visualBounds.Width, visualBounds.Height);
+            visualBounds = ClampPosition(visualBounds, template);
+
+            var currentVisual = GetVisualBounds(x, y, local.Width, local.Height, element.RotationDegrees);
+            element.X = x + (visualBounds.Left - currentVisual.Left);
+            element.Y = y + (visualBounds.Top - currentVisual.Top);
         }
 
         public static void ResizeElementFromSnapshot(
@@ -354,12 +417,21 @@ namespace BarTenderClone.Helpers
             double startFontSize,
             int startRotationDegrees,
             Vector cumulativeScreenDelta,
-            double zoom)
+            double zoom,
+            int printerDpi)
         {
             var handleX = GetHandleX(handle);
             var handleY = GetHandleY(handle);
             if (handleX == 0 && handleY == 0)
                 return;
+
+            if (element.Type == ElementType.Text)
+            {
+                if (handleX != 0)
+                    element.IsAutoWidth = false;
+                if (handleY != 0)
+                    element.IsAutoHeight = false;
+            }
 
             var originalWidth = Math.Max(startWidth, MinElementWidth);
             var originalHeight = Math.Max(startHeight, MinElementHeight);
@@ -373,7 +445,8 @@ namespace BarTenderClone.Helpers
                 originalHeight,
                 startFontSize,
                 startRotationDegrees,
-                cumulativeScreenDelta);
+                cumulativeScreenDelta,
+                printerDpi);
 
             if (!IsInsideTemplate(candidate.VisualBounds, template))
             {
@@ -389,7 +462,8 @@ namespace BarTenderClone.Helpers
                     originalHeight,
                     startFontSize,
                     startRotationDegrees,
-                    new Vector());
+                    new Vector(),
+                    printerDpi);
 
                 for (var i = 0; i < 18; i++)
                 {
@@ -404,7 +478,8 @@ namespace BarTenderClone.Helpers
                         originalHeight,
                         startFontSize,
                         startRotationDegrees,
-                        cumulativeScreenDelta * mid);
+                        cumulativeScreenDelta * mid,
+                        printerDpi);
 
                     if (IsInsideTemplate(probe.VisualBounds, template))
                     {
@@ -437,11 +512,16 @@ namespace BarTenderClone.Helpers
             double originalHeight,
             double startFontSize,
             int startRotationDegrees,
-            Vector cumulativeScreenDelta)
+            Vector cumulativeScreenDelta,
+            int printerDpi)
         {
             var originalCenter = new Point(
                 startX + originalWidth / 2,
                 startY + originalHeight / 2);
+
+            var anchorLocalOffset = new Vector(-handleX * originalWidth / 2, -handleY * originalHeight / 2);
+            var anchorCanvas = originalCenter + RotateVector(anchorLocalOffset, startRotationDegrees);
+
             var localDelta = RotateVector(cumulativeScreenDelta, -startRotationDegrees);
 
             var requestedWidth = handleX == 0
@@ -450,6 +530,51 @@ namespace BarTenderClone.Helpers
             var requestedHeight = handleY == 0
                 ? originalHeight
                 : Math.Max(MinElementHeight, originalHeight + (handleY * localDelta.Y));
+
+            // Aspect ratio constraint for QR Code (always square) and Image elements
+            bool needsAspectRatio = element.Type == ElementType.QRCode || element.Type == ElementType.Image;
+            if (needsAspectRatio)
+            {
+                double aspectRatio = 1.0;
+                if (element.Type == ElementType.Image)
+                {
+                    aspectRatio = originalWidth / Math.Max(originalHeight, 1.0);
+                }
+
+                if (handleX != 0 && handleY != 0)
+                {
+                    var widthScale = requestedWidth / originalWidth;
+                    var heightScale = requestedHeight / originalHeight;
+                    var uniformScale = Math.Min(widthScale, heightScale);
+                    requestedWidth = Math.Max(MinElementWidth, originalWidth * uniformScale);
+                    requestedHeight = Math.Max(MinElementHeight, originalHeight * uniformScale);
+                }
+                else if (handleX != 0)
+                {
+                    requestedHeight = Math.Max(MinElementHeight, requestedWidth / aspectRatio);
+                }
+                else if (handleY != 0)
+                {
+                    requestedWidth = Math.Max(MinElementWidth, requestedHeight * aspectRatio);
+                }
+            }
+
+            // Barcode width snapping to module-width multiples
+            if (element.Type == ElementType.Barcode && handleX != 0)
+            {
+                var metrics = LabelSizeHelper.CalculateCode128Layout(element.Content, requestedWidth, printerDpi);
+                requestedWidth = metrics.ActualWidthPixels;
+            }
+
+            // Snap non-constrained elements to printer dots for maximum precision
+            var dotSize = LabelSizeHelper.InchesToScreenPixels(1.0 / printerDpi);
+            if (element.Type != ElementType.Barcode && !needsAspectRatio)
+            {
+                if (handleX != 0)
+                    requestedWidth = Math.Round(requestedWidth / dotSize) * dotSize;
+                if (handleY != 0)
+                    requestedHeight = Math.Round(requestedHeight / dotSize) * dotSize;
+            }
 
             var fontSize = startFontSize;
             if (element.Type == ElementType.Text && handleX != 0 && handleY != 0 && startFontSize > 0)
@@ -461,14 +586,8 @@ namespace BarTenderClone.Helpers
             }
 
             var finalLocal = GetLocalSize(requestedWidth, requestedHeight, element.Type, fontSize, element.Content);
-            var fixedLocal = new Vector(
-                handleX == 0 ? 0 : -handleX * originalWidth / 2,
-                handleY == 0 ? 0 : -handleY * originalHeight / 2);
-            var activeCenterOffset = new Vector(
-                handleX == 0 ? 0 : handleX * finalLocal.Width / 2,
-                handleY == 0 ? 0 : handleY * finalLocal.Height / 2);
-            var fixedScreen = originalCenter + RotateVector(fixedLocal, startRotationDegrees);
-            var newCenter = fixedScreen + RotateVector(activeCenterOffset, startRotationDegrees);
+            var newAnchorLocalOffset = new Vector(-handleX * finalLocal.Width / 2, -handleY * finalLocal.Height / 2);
+            var newCenter = anchorCanvas - RotateVector(newAnchorLocalOffset, startRotationDegrees);
             var x = newCenter.X - finalLocal.Width / 2;
             var y = newCenter.Y - finalLocal.Height / 2;
 
@@ -496,10 +615,11 @@ namespace BarTenderClone.Helpers
             double width,
             double height,
             LabelTemplate template,
-            double zoom)
+            double zoom,
+            int printerDpi)
         {
             var threshold = GetSnapThreshold(zoom);
-            var grid = LabelSizeHelper.MmToScreenPixels(1);
+            var grid = LabelSizeHelper.InchesToScreenPixels(1.0 / printerDpi);
 
             var snappedX = SnapToGrid(x, grid);
             var snappedY = SnapToGrid(y, grid);
@@ -693,7 +813,7 @@ namespace BarTenderClone.Helpers
             return Math.Round(value / gridSize) * gridSize;
         }
 
-        private static int GetHandleX(ResizeHandleDirection handle)
+        public static int GetHandleX(ResizeHandleDirection handle)
         {
             return handle switch
             {
@@ -703,7 +823,7 @@ namespace BarTenderClone.Helpers
             };
         }
 
-        private static int GetHandleY(ResizeHandleDirection handle)
+        public static int GetHandleY(ResizeHandleDirection handle)
         {
             return handle switch
             {
@@ -874,7 +994,7 @@ namespace BarTenderClone.Helpers
 
         private static double GetTextMeasurePadding(double effectiveFontSize)
         {
-            return Math.Max(4, effectiveFontSize * TextMeasurePaddingFactor);
+            return effectiveFontSize * TextMeasurePaddingFactor;
         }
 
         private static int ToSign(double value)

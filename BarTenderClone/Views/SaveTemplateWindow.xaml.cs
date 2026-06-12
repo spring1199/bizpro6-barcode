@@ -18,7 +18,11 @@ namespace BarTenderClone.Views
         {
             if (string.IsNullOrWhiteSpace(NameTextBox.Text))
             {
-                MessageBox.Show("Please enter a template name.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    GetResourceString("MsgEnterTemplateName", "Please enter a template name."), 
+                    GetResourceString("MsgConfirmTitle", "Validation Error"), 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Warning);
                 return;
             }
 
@@ -31,6 +35,13 @@ namespace BarTenderClone.Views
         {
             DialogResult = false;
             Close();
+        }
+
+        private string GetResourceString(string key, string fallback)
+        {
+            if (Application.Current?.Resources == null) return fallback;
+            var resource = Application.Current.TryFindResource(key);
+            return resource is string str ? str : fallback;
         }
     }
 }

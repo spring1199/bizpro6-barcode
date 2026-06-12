@@ -92,7 +92,9 @@ namespace BarTenderClone.Services
                         RotationDegrees = LabelElement.NormalizeRotationDegrees(e.RotationDegrees),
                         ImageDataBase64 = e.ImageDataBase64,
                         ImageMimeType = e.ImageMimeType,
-                        ImageFileName = e.ImageFileName
+                        ImageFileName = e.ImageFileName,
+                        IsAutoWidth = e.IsAutoWidth,
+                        IsAutoHeight = e.IsAutoHeight
                     }).ToList()
                 };
 
@@ -147,6 +149,8 @@ namespace BarTenderClone.Services
                     ImageDataBase64 = e.ImageDataBase64 ?? string.Empty,
                     ImageMimeType = e.ImageMimeType ?? string.Empty,
                     ImageFileName = e.ImageFileName ?? string.Empty,
+                    IsAutoWidth = e.IsAutoWidth ?? (e.Type != ElementType.Text || e.Width <= 0),
+                    IsAutoHeight = e.IsAutoHeight ?? (e.Type != ElementType.Text || e.Height <= 0),
                     IsSelected = false
                 }).ToList();
 

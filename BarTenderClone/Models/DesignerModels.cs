@@ -57,12 +57,102 @@ namespace BarTenderClone.Models
         [ObservableProperty]
         private string _imageFileName = string.Empty;
 
+        [ObservableProperty]
+        private bool _isAutoWidth = true;
+
+        [ObservableProperty]
+        private bool _isAutoHeight = true;
+
+        private bool _isMeasuring;
+
+        partial void OnWidthChanged(double value)
+        {
+            if (!_isMeasuring)
+            {
+                IsAutoWidth = false;
+            }
+        }
+
+        partial void OnHeightChanged(double value)
+        {
+            if (!_isMeasuring)
+            {
+                IsAutoHeight = false;
+            }
+        }
+
         partial void OnRotationDegreesChanged(int value)
         {
             var normalized = NormalizeRotationDegrees(value);
             if (normalized != value)
             {
                 RotationDegrees = normalized;
+            }
+            AutoMeasureSize();
+        }
+
+        partial void OnContentChanged(string value) => AutoMeasureSize();
+        partial void OnFontSizeChanged(double value) => AutoMeasureSize();
+        partial void OnIsBoldChanged(bool value) => AutoMeasureSize();
+        partial void OnTypeChanged(ElementType value) => AutoMeasureSize();
+
+        public void AutoMeasureSize()
+        {
+            if (Type != ElementType.Text)
+                return;
+
+            if (!IsAutoWidth && !IsAutoHeight)
+                return;
+
+            if (System.Windows.Application.Current == null)
+            {
+                try
+                {
+                    RunMeasure();
+                }
+                catch
+                {
+                    _isMeasuring = true;
+                    try
+                    {
+                        var size = BarTenderClone.Helpers.DesignerInteractionHelper.MeasureActualTextSize(Content, FontSize, IsBold);
+                        if (IsAutoWidth) Width = size.Width;
+                        if (IsAutoHeight) Height = size.Height;
+                    }
+                    finally
+                    {
+                        _isMeasuring = false;
+                    }
+                }
+                return;
+            }
+
+            var dispatcher = System.Windows.Application.Current.Dispatcher;
+            if (dispatcher.CheckAccess())
+            {
+                RunMeasure();
+            }
+            else
+            {
+                dispatcher.BeginInvoke(new System.Action(RunMeasure));
+            }
+        }
+
+        private void RunMeasure()
+        {
+            if (IsAutoWidth || IsAutoHeight)
+            {
+                _isMeasuring = true;
+                try
+                {
+                    var size = BarTenderClone.Helpers.DesignerInteractionHelper.MeasureActualTextSize(Content, FontSize, IsBold);
+                    if (IsAutoWidth) Width = size.Width;
+                    if (IsAutoHeight) Height = size.Height;
+                }
+                finally
+                {
+                    _isMeasuring = false;
+                }
             }
         }
 

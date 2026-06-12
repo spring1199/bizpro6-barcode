@@ -1,4 +1,4 @@
-﻿    using BarTenderClone.Services;
+    using BarTenderClone.Services;
 using BarTenderClone.ViewModels;
 using BarTenderClone.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,31 +33,31 @@ namespace BarTenderClone
                         client.BaseAddress = new System.Uri(baseUrl));
                     services.AddHttpClient<IApiService, ApiService>(client =>
                         client.BaseAddress = new System.Uri(baseUrl));
+
+                    // Services
                     services.AddSingleton<IZplGeneratorService, ZplGeneratorService>();
-
-                    // Updated PrintService with logging dependency and API service
-                    services.AddSingleton<IPrintService>(sp => new PrintService(
-                        sp.GetRequiredService<IZplGeneratorService>(),
-                        sp.GetRequiredService<ILoggingService>(),
-                        sp.GetRequiredService<IApiService>()
-                    ));
-
+                    services.AddSingleton<IPrintService, PrintService>();
                     services.AddSingleton<ITemplateService, TemplateService>();
                     services.AddSingleton<IResourceMetadataService, ResourceMetadataService>();
                     services.AddSingleton<IFieldMetadataService, FieldMetadataService>();
                     services.AddSingleton<ITenantMetadataService, TenantMetadataService>();
+                    services.AddSingleton<IPrintHistoryService, PrintHistoryService>();
 
+                    // ViewModels
                     services.AddTransient<LoginViewModel>();
-            services.AddTransient<MainViewModel>();
-            services.AddTransient<LabelPreviewViewModel>(provider =>
-                new LabelPreviewViewModel(
-                    provider.GetRequiredService<IApiService>(),
-                    provider.GetRequiredService<IPrintService>(),
-                    provider.GetRequiredService<ISessionService>(),
-                    provider.GetRequiredService<ITemplateService>(),
-                    provider.GetRequiredService<IResourceMetadataService>(),
-                    provider.GetRequiredService<ILoggingService>()
-                ));
+                    services.AddTransient<MainViewModel>();
+                    services.AddTransient<HistoryViewModel>();
+                    services.AddTransient<SettingsViewModel>();
+                    services.AddTransient<LabelPreviewViewModel>(provider =>
+                        new LabelPreviewViewModel(
+                            provider.GetRequiredService<IApiService>(),
+                            provider.GetRequiredService<IPrintService>(),
+                            provider.GetRequiredService<ISessionService>(),
+                            provider.GetRequiredService<ITemplateService>(),
+                            provider.GetRequiredService<IResourceMetadataService>(),
+                            provider.GetRequiredService<IPrintHistoryService>(),
+                            provider.GetRequiredService<ILoggingService>()
+                        ));
 
             services.AddSingleton<MainWindow>(s => new MainWindow
                     {
@@ -69,15 +69,33 @@ namespace BarTenderClone
 
         protected override async void OnStartup(StartupEventArgs e)
         {
-            await AppHost!.StartAsync();
+            try
+            {
+                await AppHost!.StartAsync();
 
-            // Wire up global exception handler to prevent crashes
-            this.DispatcherUnhandledException += OnDispatcherUnhandledException;
+                // Wire up global exception handler to prevent crashes
+                this.DispatcherUnhandledException += OnDispatcherUnhandledException;
 
-            var startupForm = AppHost.Services.GetRequiredService<MainWindow>();
-            startupForm.Show();
+                var logger = AppHost.Services.GetService<ILoggingService>();
+                logger?.LogInfo("OnStartup: AppHost started. Resolving MainWindow...");
 
-            base.OnStartup(e);
+                var startupForm = AppHost.Services.GetRequiredService<MainWindow>();
+                logger?.LogInfo("OnStartup: MainWindow resolved successfully. Initializing Theme and Language...");
+                BarTenderClone.Helpers.ThemeHelper.ApplyTheme(false);
+                BarTenderClone.Helpers.LanguageHelper.LoadLanguage();
+                logger?.LogInfo("OnStartup: Showing MainWindow...");
+                startupForm.Show();
+                logger?.LogInfo("OnStartup: MainWindow.Show() called.");
+
+                base.OnStartup(e);
+            }
+            catch (Exception ex)
+            {
+                var logger = AppHost?.Services.GetService<ILoggingService>();
+                logger?.LogError("Exception in OnStartup", ex);
+                MessageBox.Show($"Startup Error: {ex.Message}\n{ex.StackTrace}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+            }
         }
 
 

@@ -19,7 +19,11 @@ namespace BarTenderClone.Views
         {
             if (TemplatesListBox.SelectedItem == null)
             {
-                MessageBox.Show("Please select a template.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    GetResourceString("MsgSelectTemplate", "Please select a template."), 
+                    GetResourceString("MsgConfirmTitle", "Validation Error"), 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Warning);
                 return;
             }
 
@@ -38,14 +42,19 @@ namespace BarTenderClone.Views
         {
              if (TemplatesListBox.SelectedItem == null)
             {
-                MessageBox.Show("Please select a template to delete.", "Delete", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    GetResourceString("MsgSelectTemplateDelete", "Please select a template to delete."), 
+                    GetResourceString("MsgConfirmTitle", "Delete"), 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Warning);
                 return;
             }
 
-            var result = MessageBox.Show($"Are you sure you want to delete '{TemplatesListBox.SelectedItem}'?", 
-                                         "Confirm Delete", 
-                                         MessageBoxButton.YesNo, 
-                                         MessageBoxImage.Warning);
+            var result = MessageBox.Show(
+                string.Format(GetResourceString("MsgDeleteTemplateConfirm", "Are you sure you want to delete '{0}'?"), TemplatesListBox.SelectedItem), 
+                GetResourceString("MsgConfirmDeleteTitle", "Confirm Delete"), 
+                MessageBoxButton.YesNo, 
+                MessageBoxImage.Warning);
 
             if (result == MessageBoxResult.Yes)
             {
@@ -62,6 +71,13 @@ namespace BarTenderClone.Views
             {
                 LoadButton_Click(sender, e);
             }
+        }
+
+        private string GetResourceString(string key, string fallback)
+        {
+            if (Application.Current?.Resources == null) return fallback;
+            var resource = Application.Current.TryFindResource(key);
+            return resource is string str ? str : fallback;
         }
     }
 }

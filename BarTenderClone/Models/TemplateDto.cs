@@ -115,6 +115,16 @@ namespace BarTenderClone.Models
         /// </summary>
         public string ImageFileName { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Flags to determine if the width is automatically adjusted based on text content
+        /// </summary>
+        public bool? IsAutoWidth { get; set; }
+
+        /// <summary>
+        /// Flags to determine if the height is automatically adjusted based on text content
+        /// </summary>
+        public bool? IsAutoHeight { get; set; }
+
         // Note: IsSelected is intentionally excluded - it's UI state only
     }
 }

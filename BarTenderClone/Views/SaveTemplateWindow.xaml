@@ -5,9 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
-        Title="Save Template" Height="180" Width="350"
+        Title="{DynamicResource SaveTemplateTitle}" Height="180" Width="350"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="White">
+        Background="White"
+        FontFamily="pack://application:,,,/BizPro6Barcode;component/Fonts/#Inter, Segoe UI, sans-serif">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -24,16 +25,16 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Enter Template Name:" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,8"/>
+        <TextBlock Grid.Row="0" Text="{DynamicResource EnterTemplateNameText}" Style="{StaticResource BodyTextStyle}" Margin="0,0,0,8"/>
         
         <TextBox Grid.Row="1" x:Name="NameTextBox" 
                  Style="{StaticResource ModernTextBoxStyle}" 
                  Height="32"/>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Cancel" Click="CancelButton_Click"
+            <Button Content="{DynamicResource BtnCancel}" Click="CancelButton_Click"
                     Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
-            <Button Content="Save" Click="SaveButton_Click"
+            <Button Content="{DynamicResource BtnSave}" Click="SaveButton_Click"
                     Style="{StaticResource PrimaryButtonStyle}" IsDefault="True"/>
         </StackPanel>
     </Grid>

@@ -53,7 +53,7 @@ namespace BarTenderClone.Models
         public IReadOnlyList<TenantGridColumnDefinition> GridColumns { get; init; } = Array.Empty<TenantGridColumnDefinition>();
 
         public IReadOnlyList<string> AvailableFields
-            => BindableFields.Select(field => field.Key).ToList();
+            => BindableFields.Select(f => f.Key).ToList();
 
         public IReadOnlyCollection<string> VisibleColumnKeys
             => GridColumns.Where(column => column.IsVisibleByDefault).Select(column => column.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
