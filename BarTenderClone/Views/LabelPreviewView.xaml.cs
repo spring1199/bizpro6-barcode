@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -9,7 +10,7 @@ using System.Windows.Threading;
 using BarTenderClone.Helpers;
 using BarTenderClone.Models;
 using BarTenderClone.ViewModels;
-
+using CommunityToolkit.Mvvm.ComponentModel;
 namespace BarTenderClone.Views
 {
     public partial class LabelPreviewView : UserControl
@@ -881,5 +882,208 @@ namespace BarTenderClone.Views
             };
             menu.Items.Add(clearAll);
         }
+
+        // ===== EXCEL-STYLE COLUMN AUTO-FILTER CODE-BEHIND =====
+        private string _currentColumnKey = "";
+        private System.Collections.Generic.List<FilterItem> _allFilterItems = new();
+        private System.Collections.ObjectModel.ObservableCollection<FilterItem> _visibleFilterItems = new();
+        private bool _isUpdatingSelectAll = false;
+
+        private void FilterButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not LabelPreviewViewModel viewModel) return;
+
+            var button = (Button)sender;
+            var columnKey = button.Tag as string;
+            if (string.IsNullOrEmpty(columnKey)) return;
+
+            _currentColumnKey = columnKey;
+
+            // Get distinct values from all loaded products
+            var distinctValues = viewModel.AllProducts
+                .Select(p => GetItemValueForColumn(p, columnKey))
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Distinct()
+                .OrderBy(v => v)
+                .ToList();
+
+            // Read current active filters for this column
+            System.Collections.Generic.HashSet<string>? activeFilters = null;
+            viewModel.FilterCriteria.ColumnFilters.TryGetValue(columnKey, out activeFilters);
+
+            _allFilterItems.Clear();
+            foreach (var val in distinctValues)
+            {
+                // If no filters are applied, check everything (Excel style)
+                bool isSelected = (activeFilters == null || activeFilters.Count == 0) || activeFilters.Contains(val);
+                var item = new FilterItem { Value = val, DisplayText = val, IsSelected = isSelected };
+                
+                // Keep track of changes to update "Select All"
+                item.PropertyChanged += (s, ev) =>
+                {
+                    if (ev.PropertyName == nameof(FilterItem.IsSelected))
+                    {
+                        if (!_isUpdatingSelectAll)
+                        {
+                            UpdateSelectAllState();
+                        }
+                    }
+                };
+                
+                _allFilterItems.Add(item);
+            }
+
+            // Update listbox source
+            UpdateVisibleFilterItems();
+
+            // Check / Uncheck select all checkbox
+            UpdateSelectAllState();
+
+            // Reset search box
+            PopupSearchTextBox.Text = string.Empty;
+
+            // Display popup below the button
+            FilterPopup.PlacementTarget = button;
+            FilterPopup.IsOpen = true;
+
+            e.Handled = true; // prevent sorting column
+        }
+
+        private string GetItemValueForColumn(ResourceItem item, string columnKey)
+        {
+            if (item == null) return string.Empty;
+            return columnKey switch
+            {
+                "Rfid" => item.Rfid ?? string.Empty,
+                "RfidStatus" => item.RfidStatusText ?? string.Empty,
+                "Status" => item.StatusDisplay ?? string.Empty,
+                "ProductName" => item.ProductName ?? string.Empty,
+                "Unit" => item.Unit ?? string.Empty,
+                "Branch" => item.Branch ?? string.Empty,
+                "Price" => item.Price.ToString("N0"),
+                "Code" => item.Code ?? string.Empty,
+                "Date" => item.DisplayDate != DateTime.MinValue ? item.DisplayDate.ToString("MM-dd") : string.Empty,
+                "AcquisitionDate" => item.AcquisitionDateFormatted ?? string.Empty,
+                "BoxNumber" => item.BoxNumber ?? string.Empty,
+                "Supplier" => item.Supplier ?? string.Empty,
+                "Category" => item.Category ?? string.Empty,
+                "ResponsibleEmployee" => item.ResponsibleEmployee ?? string.Empty,
+                _ => string.Empty
+            };
+        }
+
+        private void PopupSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            UpdateVisibleFilterItems();
+        }
+
+        private void UpdateVisibleFilterItems()
+        {
+            var search = PopupSearchTextBox.Text.Trim().ToLowerInvariant();
+            _visibleFilterItems.Clear();
+
+            var itemsToDisplay = string.IsNullOrEmpty(search)
+                ? _allFilterItems
+                : _allFilterItems.Where(i => i.DisplayText.ToLowerInvariant().Contains(search));
+
+            foreach (var item in itemsToDisplay)
+            {
+                _visibleFilterItems.Add(item);
+            }
+
+            FilterValueListBox.ItemsSource = _visibleFilterItems;
+        }
+
+        private void SelectAllCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingSelectAll) return;
+            _isUpdatingSelectAll = true;
+            foreach (var item in _visibleFilterItems)
+            {
+                item.IsSelected = true;
+            }
+            _isUpdatingSelectAll = false;
+            UpdateSelectAllState();
+        }
+
+        private void SelectAllCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingSelectAll) return;
+            _isUpdatingSelectAll = true;
+            foreach (var item in _visibleFilterItems)
+            {
+                item.IsSelected = false;
+            }
+            _isUpdatingSelectAll = false;
+            UpdateSelectAllState();
+        }
+
+        private void UpdateSelectAllState()
+        {
+            _isUpdatingSelectAll = true;
+            if (_visibleFilterItems.Count == 0)
+            {
+                SelectAllCheckBox.IsChecked = false;
+            }
+            else if (_visibleFilterItems.All(i => i.IsSelected))
+            {
+                SelectAllCheckBox.IsChecked = true;
+            }
+            else if (_visibleFilterItems.All(i => !i.IsSelected))
+            {
+                SelectAllCheckBox.IsChecked = false;
+            }
+            else
+            {
+                SelectAllCheckBox.IsChecked = null; // Indeterminate
+            }
+            _isUpdatingSelectAll = false;
+        }
+
+        private void PopupOkButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not LabelPreviewViewModel viewModel || string.IsNullOrEmpty(_currentColumnKey))
+            {
+                FilterPopup.IsOpen = false;
+                return;
+            }
+
+            // Get selected values
+            var selectedValues = _allFilterItems.Where(i => i.IsSelected).Select(i => i.Value).ToHashSet();
+
+            // If everything is selected, or nothing is selected, we clear the filter for this column
+            bool allSelected = _allFilterItems.All(i => i.IsSelected);
+            if (allSelected || selectedValues.Count == 0)
+            {
+                viewModel.FilterCriteria.ColumnFilters.Remove(_currentColumnKey);
+            }
+            else
+            {
+                viewModel.FilterCriteria.ColumnFilters[_currentColumnKey] = selectedValues;
+            }
+
+            // Notify viewModel to trigger ApplyFiltersAndPagination
+            viewModel.FilterCriteria.NotifyColumnFiltersChanged();
+
+            FilterPopup.IsOpen = false;
+        }
+
+        private void PopupCancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            FilterPopup.IsOpen = false;
+        }
+    }
+
+    public class FilterItem : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+    {
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+
+        public string Value { get; set; } = string.Empty;
+        public string DisplayText { get; set; } = string.Empty;
     }
 }

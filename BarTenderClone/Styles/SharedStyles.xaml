@@ -3,8 +3,23 @@
                     xmlns:ui="http://schemas.modernwpf.com/2019">
 
     <!-- ========================================
-         COLOR RESOURCES
+         COLOR RESOURCES & GRAPHIC PATTERNS
          ======================================== -->
+    <DrawingBrush x:Key="GridPatternBrush" TileMode="Tile" Viewport="0,0,20,20" ViewportUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <GeometryDrawing>
+                <GeometryDrawing.Geometry>
+                    <GeometryGroup>
+                        <LineGeometry StartPoint="0,0" EndPoint="20,0"/>
+                        <LineGeometry StartPoint="0,0" EndPoint="0,20"/>
+                    </GeometryGroup>
+                </GeometryDrawing.Geometry>
+                <GeometryDrawing.Pen>
+                    <Pen Brush="{DynamicResource BorderBrush}" Thickness="0.5"/>
+                </GeometryDrawing.Pen>
+            </GeometryDrawing>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
     
     <!-- ========================================
          BUTTON STYLES
@@ -75,10 +90,14 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#F0F8FF"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarSelectedBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentPressedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource BackgroundBrush}"/>
@@ -136,6 +155,8 @@
          ======================================== -->
     
     <Style x:Key="ModernTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="Height" Value="36"/>
         <Setter Property="FontSize" Value="12"/>
@@ -162,6 +183,8 @@
          ======================================== -->
     
     <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="Height" Value="36"/>
         <Setter Property="FontSize" Value="12"/>

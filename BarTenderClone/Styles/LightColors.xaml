@@ -1,37 +1,38 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     
-    <!-- Primary Colors -->
-    <SolidColorBrush x:Key="AccentBrush" Color="#0078D4"/>
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="#106EBE"/>
-    <SolidColorBrush x:Key="AccentPressedBrush" Color="#005A9E"/>
+    <!-- Primary Colors (Refined Indigo/Blue) -->
+    <SolidColorBrush x:Key="AccentBrush" Color="#4F46E5"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#6366F1"/>
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#3730A3"/>
     
-    <!-- Neutral Colors -->
-    <SolidColorBrush x:Key="BackgroundBrush" Color="#F3F3F3"/>
+    <!-- Neutral Colors (Light Slate Slate) -->
+    <SolidColorBrush x:Key="BackgroundBrush" Color="#F8FAFC"/>
     <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F5F5F5"/>
-    <SolidColorBrush x:Key="BorderBrush" Color="#E1E1E1"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1F1F1F"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#605E5C"/>
-    <SolidColorBrush x:Key="TextDisabledBrush" Color="#A19F9D"/>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F1F5F9"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#CBD5E1"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#475569"/>
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="#94A3B8"/>
+    <SolidColorBrush x:Key="TextOnSelectedBrush" Color="#0F172A"/>
     
     <!-- Semantic Colors -->
-    <SolidColorBrush x:Key="SuccessBrush" Color="#107C10"/>
-    <SolidColorBrush x:Key="WarningBrush" Color="#FF8C00"/>
-    <SolidColorBrush x:Key="ErrorBrush" Color="#D13438"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#10B981"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B"/>
+    <SolidColorBrush x:Key="ErrorBrush" Color="#EF4444"/>
     
     <!-- DataGrid Colors -->
-    <SolidColorBrush x:Key="RowHoverBrush" Color="#F5F5F5"/>
-    <SolidColorBrush x:Key="RowSelectedBrush" Color="#E5F3FF"/>
-    <SolidColorBrush x:Key="ZebraStripeBrush" Color="#FAFAFA"/>
+    <SolidColorBrush x:Key="RowHoverBrush" Color="#F1F5F9"/>
+    <SolidColorBrush x:Key="RowSelectedBrush" Color="#E2E8F0"/>
+    <SolidColorBrush x:Key="ZebraStripeBrush" Color="#F8FAFC"/>
 
     <!-- Premium UI Colors -->
-    <SolidColorBrush x:Key="SelectionGlowBrush" Color="#4DA8FF"/>
-    <SolidColorBrush x:Key="HandleBorderBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="SelectionGlowBrush" Color="#6366F1"/>
+    <SolidColorBrush x:Key="HandleBorderBrush" Color="#4F46E5"/>
     <SolidColorBrush x:Key="HandleFillBrush" Color="#FFFFFF"/>
     
     <!-- Sidebar Colors -->
-    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#EAEAEA"/>
-    <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#E5F3FF"/>
-    <SolidColorBrush x:Key="SidebarSelectedTextBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#F1F5F9"/>
+    <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#EEF2F6"/>
+    <SolidColorBrush x:Key="SidebarSelectedTextBrush" Color="#4F46E5"/>
 </ResourceDictionary>

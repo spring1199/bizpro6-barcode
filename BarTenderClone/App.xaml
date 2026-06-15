@@ -30,6 +30,7 @@
             <converters:ZeroToAutoLengthConverter x:Key="ZeroToAutoLengthConverter"/>
             <converters:DesignerElementGeometryConverter x:Key="DesignerElementGeometryConverter"/>
             <converters:EnumToLocalizedResourceConverter x:Key="EnumToLocalizedResourceConverter"/>
+            <converters:ColumnFilterActiveConverter x:Key="ColumnFilterActiveConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

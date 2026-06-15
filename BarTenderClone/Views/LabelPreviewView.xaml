@@ -62,16 +62,10 @@
                         </Grid>
                     </Border>
 
-                    <!-- Filter Header with Toggle -->
+                    <!-- Filter Header -->
                     <Border Grid.Row="1" Padding="16,8" Background="#F5F5F5">
                         <Grid>
                             <StackPanel Orientation="Horizontal">
-                                <Button Command="{Binding ToggleFilterPanelCommand}"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        Padding="8,4" Margin="0,0,12,0" Height="28">
-                                    <TextBlock Text="{Binding IsFilterExpanded, Converter={StaticResource BoolToExpandIconConverter}}"
-                                               FontSize="12"/>
-                                </Button>
                                 <TextBlock Text="{DynamicResource FilterHeader}" Style="{StaticResource SubsectionStyle}"
                                            VerticalAlignment="Center" Margin="0"/>
                                 <!-- Active Filter Badge -->
@@ -105,102 +99,8 @@
                         </Grid>
                     </Border>
 
-                    <!-- Advanced Filters (Collapsible) -->
-                    <Border Grid.Row="3" Padding="16,12" Background="#FAFAFA"
-                            Visibility="{Binding IsFilterExpanded, Converter={StaticResource BoolToVisConverter}}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Row 1: Status and RFID -->
-                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                                <TextBlock Text="{DynamicResource FilterStatus}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                <ComboBox SelectedIndex="{Binding FilterCriteria.StatusFilter}"
-                                          Style="{StaticResource ModernComboBoxStyle}" Height="32">
-                                    <ComboBoxItem Content="{DynamicResource CmbAll}"/>
-                                    <ComboBoxItem Content="{DynamicResource CmbPrinted}"/>
-                                    <ComboBoxItem Content="{DynamicResource CmbNotPrinted}"/>
-                                    <ComboBoxItem Content="{DynamicResource CmbError}"/>
-                                </ComboBox>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,8,8">
-                                <TextBlock Text="{DynamicResource FilterRfid}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding FilterCriteria.RfidFilter, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ModernTextBoxStyle}" Height="32"
-                                         ui:ControlHelper.PlaceholderText="{DynamicResource PlaceholderFilterRfid}"/>
-                            </StackPanel>
-
-                            <!-- Box Number Filter -->
-                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="8,0,0,8">
-                                <TextBlock Text="{DynamicResource FilterBoxNo}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding FilterCriteria.BoxNumberFilter, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ModernTextBoxStyle}" Height="32"
-                                         ui:ControlHelper.PlaceholderText="{DynamicResource PlaceholderFilterBox}"/>
-                            </StackPanel>
-
-                            <!-- Row 2: Code, Unit, Branch -->
-                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,8">
-                                <TextBlock Text="{DynamicResource FilterCode}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding FilterCriteria.CodeFilter, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ModernTextBoxStyle}" Height="32"
-                                         ui:ControlHelper.PlaceholderText="{DynamicResource PlaceholderFilterCode}"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,8,8">
-                                <TextBlock Text="{DynamicResource FilterUnit}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding AvailableUnits}"
-                                          SelectedItem="{Binding FilterCriteria.UnitFilter}"
-                                          Style="{StaticResource ModernComboBoxStyle}" Height="32"/>
-                            </StackPanel>
-
-                            <!-- Branch Filter -->
-                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,0,0,8">
-                                <TextBlock Text="{DynamicResource FilterBranch}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding AvailableBranches}"
-                                          SelectedItem="{Binding FilterCriteria.BranchFilter}"
-                                          Style="{StaticResource ModernComboBoxStyle}" Height="32"/>
-                            </StackPanel>
-
-                            <!-- Row 3: Price Range and Date Range -->
-                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,0,0,0">
-                                <StackPanel Width="120" Margin="0,0,8,0">
-                                    <TextBlock Text="{DynamicResource FilterMinPrice}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding FilterCriteria.MinPrice, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource ModernTextBoxStyle}" Height="32"
-                                             ui:ControlHelper.PlaceholderText="0"/>
-                                </StackPanel>
-                                <StackPanel Width="120" Margin="0,0,16,0">
-                                    <TextBlock Text="{DynamicResource FilterMaxPrice}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding FilterCriteria.MaxPrice, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource ModernTextBoxStyle}" Height="32"
-                                             ui:ControlHelper.PlaceholderText="999999"/>
-                                </StackPanel>
-
-                                <!-- Date Range -->
-                                <StackPanel Width="140" Margin="0,0,8,0">
-                                    <TextBlock Text="{DynamicResource FilterStartDate}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                    <DatePicker SelectedDate="{Binding FilterCriteria.StartDate}"
-                                                Height="32" BorderThickness="1"
-                                                BorderBrush="{StaticResource BorderBrush}"/>
-                                </StackPanel>
-                                <StackPanel Width="140" Margin="0,0,0,0">
-                                    <TextBlock Text="{DynamicResource FilterEndDate}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,4"/>
-                                    <DatePicker SelectedDate="{Binding FilterCriteria.EndDate}"
-                                                Height="32" BorderThickness="1"
-                                                BorderBrush="{StaticResource BorderBrush}"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                    <!-- Advanced Filters placeholder -->
+                    <Border Grid.Row="3" Height="0" Visibility="Collapsed"/>
 
                     <!-- Pagination Controls -->
                     <Border Grid.Row="4" Padding="12,8" Background="{StaticResource SurfaceBrush}"
@@ -216,10 +116,20 @@
                             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="{DynamicResource PageShow}" Style="{StaticResource CaptionTextStyle}"
                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <ComboBox ItemsSource="{Binding AvailablePageSizes}"
-                                          SelectedItem="{Binding Pagination.PageSize}"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Width="70" Height="28"/>
+                                 <ComboBox ItemsSource="{Binding AvailablePageSizes}"
+                                           SelectedItem="{Binding Pagination.PageSize}"
+                                           Style="{StaticResource ModernComboBoxStyle}"
+                                           Width="70" Height="28"
+                                           Padding="8,2"
+                                           VerticalContentAlignment="Center">
+                                     <ComboBox.ItemContainerStyle>
+                                         <Style TargetType="ComboBoxItem">
+                                             <Setter Property="Padding" Value="8,4"/>
+                                             <Setter Property="MinHeight" Value="24"/>
+                                             <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                         </Style>
+                                     </ComboBox.ItemContainerStyle>
+                                 </ComboBox>
                                 <TextBlock Text="{DynamicResource PagePerPage}" Style="{StaticResource CaptionTextStyle}"
                                            VerticalAlignment="Center" Margin="8,0,0,0"/>
                             </StackPanel>
@@ -279,15 +189,15 @@
                               IsReadOnly="False"
                               SelectionMode="Single"
                               BorderThickness="1"
-                              BorderBrush="#D0D0D0"
+                              BorderBrush="{DynamicResource BorderBrush}"
                               Margin="0"
                               GridLinesVisibility="All"
-                              HorizontalGridLinesBrush="#D8D8D8"
-                              VerticalGridLinesBrush="#D8D8D8"
+                              HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                              VerticalGridLinesBrush="{DynamicResource BorderBrush}"
                               HeadersVisibility="Column"
                               RowHeaderWidth="0"
-                              Background="White"
-                              Foreground="#201F1E"
+                              Background="{DynamicResource SurfaceBrush}"
+                              Foreground="{DynamicResource TextPrimaryBrush}"
                               FrozenColumnCount="2"
                               AlternationCount="10000"
                               HorizontalScrollBarVisibility="Auto"
@@ -299,17 +209,17 @@
                         <DataGrid.Resources>
                             <!-- Row Style with grid lines visible -->
                             <Style TargetType="DataGridRow">
-                                <Setter Property="Background" Value="White"/>
-                                <Setter Property="Foreground" Value="#201F1E"/>
+                                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                 <Setter Property="MinHeight" Value="32"/>
                                 <EventSetter Event="MouseLeftButtonDown" Handler="DataGridRow_MouseLeftButtonDown"/>
                                 <Style.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#EBF3FB"/>
+                                        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}"/>
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#D6E8FA"/>
-                                        <Setter Property="Foreground" Value="#000000"/>
+                                        <Setter Property="Background" Value="{DynamicResource RowSelectedBrush}"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource TextOnSelectedBrush}"/>
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
@@ -341,13 +251,62 @@
 
                             <!-- Column Header Style -->
                             <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Background" Value="#F5F5F5"/>
-                                <Setter Property="Foreground" Value="#404040"/>
+                                <Setter Property="Background" Value="{DynamicResource ZebraStripeBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                                 <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Padding" Value="8,10"/>
                                 <Setter Property="BorderThickness" Value="0,0,1,2"/>
-                                <Setter Property="BorderBrush" Value="#C8C8C8"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                            </Style>
+
+                            <!-- Subtle Filter Icon Button Style -->
+                            <Style x:Key="FilterIconButtonStyle" TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Margin" Value="4,0,0,0"/>
+                                <Setter Property="Padding" Value="2"/>
+                                <Setter Property="Width" Value="20"/>
+                                <Setter Property="Height" Value="20"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="Transparent" SnapsToDevicePixels="True">
+                                                <TextBlock x:Name="Icon" Text="☰" FontSize="11" 
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Icon" Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter TargetName="Icon" Property="Opacity" Value="1.0"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <DataTrigger Value="True">
+                                        <DataTrigger.Binding>
+                                            <MultiBinding Converter="{StaticResource ColumnFilterActiveConverter}">
+                                                <Binding Path="DataContext.FilterCriteria.ColumnFilters" RelativeSource="{RelativeSource AncestorType=DataGrid}"/>
+                                                <Binding Path="Tag" RelativeSource="{RelativeSource Self}"/>
+                                            </MultiBinding>
+                                        </DataTrigger.Binding>
+                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </DataTrigger>
+                                    <DataTrigger Value="False">
+                                        <DataTrigger.Binding>
+                                            <MultiBinding Converter="{StaticResource ColumnFilterActiveConverter}">
+                                                <Binding Path="DataContext.FilterCriteria.ColumnFilters" RelativeSource="{RelativeSource AncestorType=DataGrid}"/>
+                                                <Binding Path="Tag" RelativeSource="{RelativeSource Self}"/>
+                                            </MultiBinding>
+                                        </DataTrigger.Binding>
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                        <Setter Property="Opacity" Value="0.4"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
                             </Style>
                         </DataGrid.Resources>
 
@@ -382,9 +341,30 @@
 
                             <!-- Columns ordered to match web RFID tag menu:
                                  RFID → Статус → Бүтээгдэхүүн → Нэгж → Салбар → Үнэ → Баркод/Код → бусад -->
-                            <DataGridTextColumn Header="{DynamicResource GridColRfid}" Binding="{Binding Rfid}" Width="175" IsReadOnly="True"/>
-                            <!-- RFID активацийн статус — chipmo2-тай ижил 0-10 статус кодууд -->
-                            <DataGridTemplateColumn Header="{DynamicResource GridColRfidStatus}" Width="130" IsReadOnly="True" SortMemberPath="RfidStatusCode">
+                            <DataGridTextColumn Binding="{Binding Rfid}" Width="175" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColRfid}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Rfid" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTemplateColumn Width="130" IsReadOnly="True" SortMemberPath="RfidStatusCode">
+                                <DataGridTemplateColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColRfidStatus}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="RfidStatus" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTemplateColumn.Header>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
@@ -399,8 +379,31 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="{DynamicResource GridColStatus}" Binding="{Binding StatusDisplay}" Width="80" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColName}" Binding="{Binding ProductName}" Width="*" IsReadOnly="True">
+
+                            <DataGridTextColumn Binding="{Binding StatusDisplay}" Width="80" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColStatus}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Status" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding ProductName}" Width="*" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColName}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="ProductName" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -409,16 +412,136 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="{DynamicResource GridColUnit}" Binding="{Binding Unit}" Width="55" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColBranch}" Binding="{Binding Branch}" Width="110" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColPrice}" Binding="{Binding Price, StringFormat=N0}" Width="70" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColCode}" Binding="{Binding Code}" Width="80" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColDate}" Binding="{Binding DisplayDate, StringFormat=MM-dd}" Width="60" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColAcquisitionDate}" Binding="{Binding AcquisitionDateFormatted}" Width="95" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColBoxNo}" Binding="{Binding BoxNumber}" Width="70" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColSupplier}" Binding="{Binding Supplier}" Width="115" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColCategory}" Binding="{Binding Category}" Width="105" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="{DynamicResource GridColResponsibleEmployee}" Binding="{Binding ResponsibleEmployee}" Width="115" IsReadOnly="True"/>
+
+                            <DataGridTextColumn Binding="{Binding Unit}" Width="55" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColUnit}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Unit" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding Branch}" Width="110" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColBranch}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Branch" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding Price, StringFormat=N0}" Width="70" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColPrice}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Price" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding Code}" Width="80" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColCode}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Code" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding DisplayDate, StringFormat=MM-dd}" Width="60" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColDate}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Date" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding AcquisitionDateFormatted}" Width="95" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColAcquisitionDate}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="AcquisitionDate" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding BoxNumber}" Width="70" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColBoxNo}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="BoxNumber" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding Supplier}" Width="115" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColSupplier}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Supplier" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding Category}" Width="105" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColCategory}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="Category" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Binding="{Binding ResponsibleEmployee}" Width="115" IsReadOnly="True">
+                                <DataGridTextColumn.Header>
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource GridColResponsibleEmployee}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Click="FilterButton_Click" Tag="ResponsibleEmployee" Style="{StaticResource FilterIconButtonStyle}"/>
+                                    </Grid>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -544,7 +667,7 @@
                     <ScrollViewer x:Name="CanvasScrollViewer"
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
-                                  Background="Transparent">
+                                  Background="{StaticResource GridPatternBrush}">
                         <AdornerDecorator>
                         <Grid>
                             <!-- Label Card -->
@@ -1311,5 +1434,72 @@
                 </StackPanel>
             </Grid>
         </Border>
+
+        <!-- Shared Excel-style Auto-Filter Popup -->
+        <Popup x:Name="FilterPopup" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Placement="Bottom">
+            <Border Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Width="240"
+                    MaxHeight="320"
+                    Padding="10">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="10" Color="#20000000" ShadowDepth="3" Opacity="0.4"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Search Box -->
+                        <RowDefinition Height="Auto"/> <!-- Select All -->
+                        <RowDefinition Height="*"/>    <!-- List of values -->
+                        <RowDefinition Height="Auto"/> <!-- Buttons -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Search Input -->
+                    <TextBox x:Name="PopupSearchTextBox" 
+                             Style="{StaticResource SearchTextBoxStyle}"
+                             Height="28" Margin="0,0,0,6"
+                             ui:ControlHelper.PlaceholderText="Search..."
+                             TextChanged="PopupSearchTextBox_TextChanged"/>
+
+                    <!-- Select All Checkbox -->
+                    <CheckBox x:Name="SelectAllCheckBox" Grid.Row="1"
+                              Content="Select All" Margin="4,0,0,6"
+                              Checked="SelectAllCheckBox_Checked"
+                              Unchecked="SelectAllCheckBox_Unchecked"
+                              FontWeight="SemiBold"
+                              FontSize="11"/>
+
+                    <!-- List of values (using ScrollViewer + ItemsControl to bypass bulky ListBoxItem templates) -->
+                    <ScrollViewer Grid.Row="2" MaxHeight="140" Margin="0,0,0,8"
+                                  Padding="0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalAlignment="Top">
+                        <ItemsControl x:Name="FilterValueListBox" BorderThickness="0" Background="Transparent">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              Content="{Binding DisplayText}"
+                                              FontSize="11" Margin="4,2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Popup Action Buttons -->
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                        <Button Content="OK" Width="75" Height="26" Margin="0,0,8,0"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Padding="0" FontSize="12"
+                                Click="PopupOkButton_Click" IsDefault="True"/>
+                        <Button Content="Cancel" Width="75" Height="26"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Padding="0" FontSize="12"
+                                Click="PopupCancelButton_Click" IsCancel="True"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Popup>
     </Grid>
 </UserControl>

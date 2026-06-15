@@ -46,6 +46,9 @@ namespace BarTenderClone.Models
         [ObservableProperty]
         private DateTime? _endDate;
 
+        // Column level multi-select filters: ColumnKey -> Set of allowed values
+        public System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> ColumnFilters { get; } = new();
+
         /// <summary>
         /// Count of active filters (for UI badge)
         /// </summary>
@@ -63,6 +66,11 @@ namespace BarTenderClone.Models
                 if (!string.IsNullOrWhiteSpace(BoxNumberFilter)) count++;
                 if (MinPrice.HasValue || MaxPrice.HasValue) count++;
                 if (StartDate.HasValue || EndDate.HasValue) count++;
+                
+                foreach (var filter in ColumnFilters.Values)
+                {
+                    if (filter.Count > 0) count++;
+                }
                 return count;
             }
         }
@@ -88,10 +96,19 @@ namespace BarTenderClone.Models
             MaxPrice = null;
             StartDate = null;
             EndDate = null;
+            ColumnFilters.Clear();
 
             // Notify that filter counts have changed
             OnPropertyChanged(nameof(ActiveFilterCount));
             OnPropertyChanged(nameof(HasActiveFilters));
+            OnPropertyChanged("ColumnFilters");
+        }
+
+        public void NotifyColumnFiltersChanged()
+        {
+            OnPropertyChanged(nameof(ActiveFilterCount));
+            OnPropertyChanged(nameof(HasActiveFilters));
+            OnPropertyChanged("ColumnFilters");
         }
 
         partial void OnStatusFilterChanged(PrintStatusFilter value)

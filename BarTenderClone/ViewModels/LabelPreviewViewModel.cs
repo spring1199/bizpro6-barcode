@@ -1404,9 +1404,37 @@ namespace BarTenderClone.ViewModels
             {
                 filtered = filtered.Where(p => p.CreationTime.Date >= FilterCriteria.StartDate.Value.Date);
             }
-            if (FilterCriteria.EndDate.HasValue)
+
+            // Column level multi-select filters
+            foreach (var columnFilter in FilterCriteria.ColumnFilters.ToList())
             {
-                filtered = filtered.Where(p => p.CreationTime.Date <= FilterCriteria.EndDate.Value.Date);
+                var columnKey = columnFilter.Key;
+                var allowedValues = columnFilter.Value;
+                if (allowedValues != null && allowedValues.Count > 0)
+                {
+                    filtered = filtered.Where(item =>
+                    {
+                        var value = columnKey switch
+                        {
+                            "Rfid" => item.Rfid,
+                            "RfidStatus" => item.RfidStatusText,
+                            "Status" => item.StatusDisplay,
+                            "ProductName" => item.ProductName,
+                            "Unit" => item.Unit,
+                            "Branch" => item.Branch,
+                            "Price" => item.Price.ToString("N0"),
+                            "Code" => item.Code,
+                            "Date" => item.DisplayDate != DateTime.MinValue ? item.DisplayDate.ToString("MM-dd") : string.Empty,
+                            "AcquisitionDate" => item.AcquisitionDateFormatted,
+                            "BoxNumber" => item.BoxNumber,
+                            "Supplier" => item.Supplier,
+                            "Category" => item.Category,
+                            "ResponsibleEmployee" => item.ResponsibleEmployee,
+                            _ => string.Empty
+                        };
+                        return value != null && allowedValues.Contains(value);
+                    });
+                }
             }
 
             // Update filtered collection
