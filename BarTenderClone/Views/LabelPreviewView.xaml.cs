@@ -30,7 +30,8 @@ namespace BarTenderClone.Views
         private int _rotateStartRotationDegrees;
 
         // Alignment guide adorner
-        private AlignmentGuideAdorner? _alignmentGuideAdorner;
+        // Commented out per user request to disable alignment guides
+        // private AlignmentGuideAdorner? _alignmentGuideAdorner;
 
         // Ctrl+Click range select tracking
         private int _lastSelectedIndex = -1;
@@ -48,12 +49,15 @@ namespace BarTenderClone.Views
             Loaded += (s, e) =>
             {
                 Focus();
+                // Commented out per user request to disable alignment guides
+                /*
                 var adornerLayer = AdornerLayer.GetAdornerLayer(LabelCard);
                 if (adornerLayer != null)
                 {
                     _alignmentGuideAdorner = new AlignmentGuideAdorner(LabelCard);
                     adornerLayer.Add(_alignmentGuideAdorner);
                 }
+                */
             };
 
             // Attach zoom event handler
@@ -75,9 +79,8 @@ namespace BarTenderClone.Views
             {
                 _dragStartX = element.X;
                 _dragStartY = element.Y;
-                _accumulatedDragX = 0;
-                _accumulatedDragY = 0;
                 _moveDragSavedUndo = false;
+                _dragStartMouse = Mouse.GetPosition(LabelCard);
             }
         }
 
@@ -94,19 +97,21 @@ namespace BarTenderClone.Views
                     _moveDragSavedUndo = true;
                 }
 
-                _accumulatedDragX += e.HorizontalChange;
-                _accumulatedDragY += e.VerticalChange;
+                Point currentMouse = Mouse.GetPosition(LabelCard);
+                Vector cumulativeDelta = currentMouse - _dragStartMouse;
 
                 DesignerInteractionHelper.MoveElementAbsolute(
                     element,
                     viewModel.Template,
                     _dragStartX,
                     _dragStartY,
-                    _accumulatedDragX,
-                    _accumulatedDragY,
+                    cumulativeDelta.X,
+                    cumulativeDelta.Y,
                     viewModel.CurrentZoom,
                     viewModel.PrinterDpi);
 
+                // Commented out per user request to disable alignment guides
+                /*
                 if (_alignmentGuideAdorner != null)
                 {
                     // Calculate visual bounds of the moved element
@@ -131,12 +136,14 @@ namespace BarTenderClone.Views
                         element.Y += deltaY;
                     }
                 }
+                */
             }
         }
 
         private void Thumb_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            _alignmentGuideAdorner?.ClearGuides();
+            // Commented out per user request to disable alignment guides
+            // _alignmentGuideAdorner?.ClearGuides();
             e.Handled = true;
         }
 
@@ -374,6 +381,67 @@ namespace BarTenderClone.Views
                 viewModel.RedoCommand.Execute(null);
                 e.Handled = true;
                 return;
+            }
+
+            // Duplicate selected element: Ctrl+D
+            if (e.Key == Key.D && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                if (viewModel.SelectedElement != null)
+                {
+                    viewModel.SaveUndoState("Duplicate element");
+                    var source = viewModel.SelectedElement;
+                    var copy = new LabelElement
+                    {
+                        Type = source.Type,
+                        Content = source.Content,
+                        FieldName = source.FieldName,
+                        X = source.X + 10, // Offset copy slightly
+                        Y = source.Y + 10,
+                        Width = source.Width,
+                        Height = source.Height,
+                        FontSize = source.FontSize,
+                        IsBold = source.IsBold,
+                        IsCentered = source.IsCentered,
+                        RotationDegrees = source.RotationDegrees,
+                        ImageDataBase64 = source.ImageDataBase64,
+                        ImageMimeType = source.ImageMimeType,
+                        ImageFileName = source.ImageFileName,
+                        IsAutoWidth = source.IsAutoWidth,
+                        IsAutoHeight = source.IsAutoHeight
+                    };
+
+                    source.IsSelected = false;
+                    copy.IsSelected = true;
+                    viewModel.Elements.Add(copy);
+                    viewModel.SelectedElement = copy;
+                    viewModel.IsDirty = true;
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            // Arrow key nudge
+            if (e.Key == Key.Left || e.Key == Key.Right || e.Key == Key.Up || e.Key == Key.Down)
+            {
+                if (viewModel.SelectedElement != null)
+                {
+                    viewModel.SaveUndoState("Nudge element");
+                    double delta = (Keyboard.Modifiers == ModifierKeys.Shift) ? 10.0 : 1.0;
+
+                    if (e.Key == Key.Left)
+                        viewModel.SelectedElement.X -= delta;
+                    else if (e.Key == Key.Right)
+                        viewModel.SelectedElement.X += delta;
+                    else if (e.Key == Key.Up)
+                        viewModel.SelectedElement.Y -= delta;
+                    else if (e.Key == Key.Down)
+                        viewModel.SelectedElement.Y += delta;
+
+                    DesignerInteractionHelper.ClampElementToTemplate(viewModel.SelectedElement, viewModel.Template);
+                    viewModel.IsDirty = true;
+                    e.Handled = true;
+                    return;
+                }
             }
 
             // Delete selected element

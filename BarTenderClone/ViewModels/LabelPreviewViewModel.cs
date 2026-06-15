@@ -950,8 +950,8 @@ namespace BarTenderClone.ViewModels
                 X = leftMargin,
                 Y = currentY,
                 FontSize = codeFontPx,
-                Width = availableWidth,
-                Height = codeLineHeightPx
+                IsAutoWidth = true,
+                IsAutoHeight = true
             });
             currentY += codeLineHeightPx + sectionSpacingPx;
 
@@ -965,8 +965,8 @@ namespace BarTenderClone.ViewModels
                 Y = currentY,
                 FontSize = nameFontPx,
                 IsBold = false,
-                Width = availableWidth,
-                Height = nameLineHeightPx
+                IsAutoWidth = true,
+                IsAutoHeight = true
             });
             currentY += nameLineHeightPx + lineSpacingPx;
 
@@ -979,8 +979,8 @@ namespace BarTenderClone.ViewModels
                 Y = currentY,
                 FontSize = priceFontPx,
                 IsBold = true,
-                Width = availableWidth,
-                Height = priceLineHeightPx
+                IsAutoWidth = true,
+                IsAutoHeight = true
             });
             currentY += priceLineHeightPx + sectionSpacingPx;
 
@@ -1027,8 +1027,8 @@ namespace BarTenderClone.ViewModels
                 X = margins.left,
                 Y = margins.top,
                 FontSize = defaultFontSize,
-                Width = Template.Width - margins.left - margins.right,
-                Height = defaultFontSize * 2.5
+                IsAutoWidth = true,
+                IsAutoHeight = true
             };
 
             Elements.Add(newElement);

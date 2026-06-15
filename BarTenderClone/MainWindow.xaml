@@ -14,6 +14,7 @@
         MinHeight="600" MinWidth="1024"
         WindowStartupLocation="CenterScreen"
         ui:WindowHelper.UseModernWindowStyle="True"
+        Icon="pack://application:,,,/Assets/chipmo-logo1.png"
         FontFamily="pack://application:,,,/BizPro6Barcode;component/Fonts/#Inter, Segoe UI, sans-serif">
 
     <Window.Resources>
@@ -58,12 +59,11 @@
 
                 <!-- 1. Header with App Logo & Title -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="24,24,24,16" VerticalAlignment="Center">
-                    <Border Width="36" Height="36" Background="{DynamicResource AccentBrush}"
-                            CornerRadius="8" Margin="0,0,12,0" VerticalAlignment="Center">
-                        <TextBlock Text="🏷️" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock Text="BizPro6 Barcode" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Rectangle Height="30" Width="140" Fill="{DynamicResource TextPrimaryBrush}">
+                        <Rectangle.OpacityMask>
+                            <ImageBrush ImageSource="pack://application:,,,/Assets/chipmo-logo2.png" Stretch="Uniform" />
+                        </Rectangle.OpacityMask>
+                    </Rectangle>
                 </StackPanel>
 
                 <!-- 2. Menu Buttons -->

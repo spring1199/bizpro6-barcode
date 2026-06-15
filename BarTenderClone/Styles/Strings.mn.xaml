@@ -262,9 +262,6 @@
     <sys:String x:Key="MsgSelectTemplateDelete">Устгах загварыг сонгоно уу.</sys:String>
     <sys:String x:Key="MsgDeleteTemplateConfirm">'{0}' загварыг устгахдаа итгэлтэй байна уу?</sys:String>
     <sys:String x:Key="MsgConfirmDeleteTitle">Устгахыг баталгаажуулах</sys:String>
-    <sys:String x:Key="MsgEnterTemplateName">Загварын нэрийг оруулна уу.</sys:String>
-    <sys:String x:Key="MsgDataUpdated">Өгөгдөл шинэчлэгдлээ: </sys:String>
-    <sys:String x:Key="StatusPrintCancelled">Хэвлэлтийг цуцаллаа.</sys:String>
 
     <!-- Extra Viewmodel and dialogue translations -->
     <sys:String x:Key="MsgClearCanvasConfirm">Та загварыг цэвэрлэхдээ итгэлтэй байна уу? Хадгалаагүй өөрчлөлтүүд устах болно.</sys:String>

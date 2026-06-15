@@ -32,10 +32,20 @@ namespace BarTenderClone.Helpers
                 (vector.X * sin) + (vector.Y * cos));
         }
 
+        private static readonly Dictionary<string, (double Width, double Height)> _measureActualTextSizeCache = new Dictionary<string, (double Width, double Height)>();
+        private static readonly Dictionary<string, TextMeasurement> _measureTextCache = new Dictionary<string, TextMeasurement>();
+
         public static (double Width, double Height) MeasureActualTextSize(string content, double fontSize, bool isBold)
         {
             var effectiveFontSize = Math.Max(8, fontSize) * LabelSizeHelper.FONT_SCALING_FACTOR;
             var safeContent = string.IsNullOrEmpty(content) ? " " : content;
+            string cacheKey = $"{safeContent}|{effectiveFontSize}|{isBold}";
+            
+            if (_measureActualTextSizeCache.TryGetValue(cacheKey, out var cachedResult))
+            {
+                return cachedResult;
+            }
+
             try
             {
                 var formattedText = new System.Windows.Media.FormattedText(
@@ -43,7 +53,7 @@ namespace BarTenderClone.Helpers
                     System.Globalization.CultureInfo.CurrentUICulture,
                     System.Windows.FlowDirection.LeftToRight,
                     new System.Windows.Media.Typeface(
-                        new System.Windows.Media.FontFamily("Segoe UI"),
+                        new System.Windows.Media.FontFamily(LabelSizeHelper.DEFAULT_FONT_FAMILY),
                         System.Windows.FontStyles.Normal,
                         isBold ? System.Windows.FontWeights.Bold : System.Windows.FontWeights.Normal,
                         System.Windows.FontStretches.Normal),
@@ -57,7 +67,10 @@ namespace BarTenderClone.Helpers
                 var padding = effectiveFontSize * TextMeasurePaddingFactor;
                 var w = Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace + padding * 2);
                 var h = Math.Ceiling(formattedText.Height + padding);
-                return (w, h);
+                
+                var result = (w, h);
+                _measureActualTextSizeCache[cacheKey] = result;
+                return result;
             }
             catch
             {
@@ -67,7 +80,10 @@ namespace BarTenderClone.Helpers
                 var maxLineLen = safeContent.Split('\n').Max(l => l.Length);
                 var w = Math.Ceiling(maxLineLen * averageCharWidth + padding * 2);
                 var h = Math.Ceiling(lines * effectiveFontSize * 1.35 + padding);
-                return (w, h);
+                
+                var result = (w, h);
+                _measureActualTextSizeCache[cacheKey] = result;
+                return result;
             }
         }
 
@@ -559,12 +575,15 @@ namespace BarTenderClone.Helpers
                 }
             }
 
-            // Barcode width snapping to module-width multiples
+            // Barcode width snapping to module-width multiples disabled during designer resize to allow smooth scaling
+            // ZPL generation will handle snapping dynamically based on printer DPI.
+            /*
             if (element.Type == ElementType.Barcode && handleX != 0)
             {
                 var metrics = LabelSizeHelper.CalculateCode128Layout(element.Content, requestedWidth, printerDpi);
                 requestedWidth = metrics.ActualWidthPixels;
             }
+            */
 
             // Snap non-constrained elements to printer dots for maximum precision
             var dotSize = LabelSizeHelper.InchesToScreenPixels(1.0 / printerDpi);
@@ -896,7 +915,7 @@ namespace BarTenderClone.Helpers
                     CultureInfo.CurrentUICulture,
                     FlowDirection.LeftToRight,
                     new Typeface(
-                        new FontFamily("Segoe UI"),
+                        new FontFamily(LabelSizeHelper.DEFAULT_FONT_FAMILY),
                         FontStyles.Normal,
                         FontWeights.Bold,
                         FontStretches.Normal),
@@ -938,7 +957,7 @@ namespace BarTenderClone.Helpers
                         CultureInfo.CurrentUICulture,
                         FlowDirection.LeftToRight,
                         new Typeface(
-                            new FontFamily("Segoe UI"),
+                            new FontFamily(LabelSizeHelper.DEFAULT_FONT_FAMILY),
                             FontStyles.Normal,
                             FontWeights.Bold,
                             FontStretches.Normal),
@@ -974,7 +993,7 @@ namespace BarTenderClone.Helpers
                     CultureInfo.CurrentUICulture,
                     FlowDirection.LeftToRight,
                     new Typeface(
-                        new FontFamily("Segoe UI"),
+                        new FontFamily(LabelSizeHelper.DEFAULT_FONT_FAMILY),
                         FontStyles.Normal,
                         FontWeights.Bold,
                         FontStretches.Normal),
@@ -1025,6 +1044,12 @@ namespace BarTenderClone.Helpers
             bool isCentered,
             bool wrapText)
         {
+            string cacheKey = $"{content}|{effectiveFontSize}|{maxTextWidth}|{isBold}|{isCentered}|{wrapText}";
+            if (_measureTextCache.TryGetValue(cacheKey, out var cachedResult))
+            {
+                return cachedResult;
+            }
+
             try
             {
                 var formattedText = new FormattedText(
@@ -1032,7 +1057,7 @@ namespace BarTenderClone.Helpers
                     CultureInfo.CurrentUICulture,
                     FlowDirection.LeftToRight,
                     new Typeface(
-                        new FontFamily("Segoe UI"),
+                        new FontFamily(LabelSizeHelper.DEFAULT_FONT_FAMILY),
                         FontStyles.Normal,
                         isBold ? FontWeights.Bold : FontWeights.Normal,
                         FontStretches.Normal),
@@ -1048,9 +1073,11 @@ namespace BarTenderClone.Helpers
                     formattedText.MaxTextWidth = Math.Max(1, maxTextWidth);
                 }
 
-                return new TextMeasurement(
+                var result = new TextMeasurement(
                     Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace),
                     Math.Ceiling(formattedText.Height));
+                _measureTextCache[cacheKey] = result;
+                return result;
             }
             catch
             {
@@ -1062,9 +1089,11 @@ namespace BarTenderClone.Helpers
                     lines = Math.Max(1, (int)Math.Ceiling((double)Math.Max(1, content.Length) / charsPerLine));
                 }
 
-                return new TextMeasurement(
+                var result = new TextMeasurement(
                     wrapText ? Math.Min(maxTextWidth, content.Length * averageCharWidth) : content.Length * averageCharWidth,
                     Math.Ceiling(effectiveFontSize * 1.35 * lines));
+                _measureTextCache[cacheKey] = result;
+                return result;
             }
         }
 

@@ -493,6 +493,7 @@
                                        Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisConverter}}"/>
 
                             <Separator Style="{StaticResource VerticalSeparatorStyle}" Margin="12,0"/>
+                            <!-- Toggled off by user
                             <CheckBox IsChecked="{Binding ShowMarginGuides}" Content="{DynamicResource ToolbarMargins}" 
                                       VerticalAlignment="Center" Margin="0,0,8,0"
                                       ToolTip="{DynamicResource ToolTipShowMargins}"/>
@@ -500,6 +501,7 @@
                             <CheckBox IsChecked="{Binding ShowCalibratedBoundary}" Content="{DynamicResource ToolbarBoundary}" 
                                       VerticalAlignment="Center" Margin="0,0,12,0"
                                       ToolTip="{DynamicResource ToolTipShowBoundary}"/>
+                            -->
 
                             <Separator Style="{StaticResource VerticalSeparatorStyle}" Margin="12,0"/>
                             <TextBlock Text="{DynamicResource ToolbarPrintCal}" Style="{StaticResource BodyTextStyle}"
@@ -553,6 +555,10 @@
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Focusable="True"
+                                    SnapsToDevicePixels="True"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    TextOptions.TextFormattingMode="Ideal"
+                                    TextOptions.TextRenderingMode="ClearType"
                                     PreviewMouseDown="LabelCard_PreviewMouseDown">
                                 <Border.RenderTransform>
                                     <ScaleTransform x:Name="ZoomTransform"
@@ -562,26 +568,21 @@
                                 <Border.RenderTransformOrigin>
                                     <Point X="0.5" Y="0.5"/>
                                 </Border.RenderTransformOrigin>
-
                                 <Grid>
-                                    <!-- Margin Guide Layer (Behind Content) -->
+                                    <!-- Margins and Boundaries temporarily disabled
                                     <Canvas IsHitTestVisible="False" ClipToBounds="True">
-                                        <!-- Left Margin Line -->
                                         <Line X1="{Binding SafeMarginLeft}" Y1="0"
                                               X2="{Binding SafeMarginLeft}" Y2="{Binding Template.Height}"
                                               Stroke="#CCCCCC" StrokeThickness="1" StrokeDashArray="4 2" Opacity="0.7"
                                               Visibility="{Binding ShowMarginGuides, Converter={StaticResource BoolToVisConverter}}"/>
-                                        <!-- Top Margin Line -->
                                         <Line X1="0" Y1="{Binding SafeMarginTop}"
                                               X2="{Binding Template.Width}" Y2="{Binding SafeMarginTop}"
                                               Stroke="#CCCCCC" StrokeThickness="1" StrokeDashArray="4 2" Opacity="0.7"
                                               Visibility="{Binding ShowMarginGuides, Converter={StaticResource BoolToVisConverter}}"/>
-                                        <!-- Right Margin Line -->
                                         <Line X1="{Binding SafeMarginRight}" Y1="0"
                                               X2="{Binding SafeMarginRight}" Y2="{Binding Template.Height}"
                                               Stroke="#CCCCCC" StrokeThickness="1" StrokeDashArray="4 2" Opacity="0.7"
                                               Visibility="{Binding ShowMarginGuides, Converter={StaticResource BoolToVisConverter}}"/>
-                                        <!-- Bottom Margin Line -->
                                         <Line X1="0" Y1="{Binding SafeMarginBottom}"
                                               X2="{Binding Template.Width}" Y2="{Binding SafeMarginBottom}"
                                               Stroke="#CCCCCC" StrokeThickness="1" StrokeDashArray="4 2" Opacity="0.7"
@@ -596,12 +597,13 @@
                                                    Opacity="0.75"
                                                    Visibility="{Binding ShowCalibratedBoundary, Converter={StaticResource BoolToVisConverter}}"/>
                                     </Canvas>
-
+                                    -->
                                     <!-- Content Layer -->
                                     <ItemsControl ItemsSource="{Binding Elements}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas Background="Transparent" ClipToBounds="True"/>
+                                            <Canvas Background="Transparent" ClipToBounds="True"
+                                                    RenderOptions.BitmapScalingMode="HighQuality"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
 
@@ -640,7 +642,7 @@
 
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Thumb DragDelta="Thumb_DragDelta" MouseDown="Thumb_MouseDown" Tag="{Binding}"
+                                            <Thumb DragStarted="Thumb_DragStarted" DragDelta="Thumb_DragDelta" DragCompleted="Thumb_DragCompleted" MouseDown="Thumb_MouseDown" Tag="{Binding}"
                                                    MinWidth="20" MinHeight="10"
                                                    Cursor="SizeAll">
                                                 <Thumb.Width>
@@ -738,7 +740,7 @@
                                                                 <!-- Content Layer -->
                                                                 <Grid>
                                                                     <!-- Text Element -->
-                                                                    <Viewbox Margin="4"
+                                                                    <Viewbox Margin="0"
                                                                              Stretch="Uniform"
                                                                              StretchDirection="DownOnly"
                                                                              HorizontalAlignment="Stretch"
@@ -794,9 +796,10 @@
                                                                             Height="{Binding Height}"
                                                                             Background="Transparent"
                                                                             Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Barcode}">
-                                                                        <Image Stretch="Uniform"
+                                                                        <Image Stretch="Fill"
                                                                                HorizontalAlignment="Left"
-                                                                               VerticalAlignment="Center">
+                                                                               VerticalAlignment="Center"
+                                                                               RenderOptions.BitmapScalingMode="NearestNeighbor">
                                                                             <Image.Source>
                                                                                 <MultiBinding Converter="{StaticResource BarcodeToImageConverter}">
                                                                                     <Binding Path="Content"/>
@@ -816,7 +819,8 @@
                                                                             Visibility="{Binding Type, Converter={StaticResource EnumToVisConverter}, ConverterParameter=QRCode}">
                                                                         <Image Stretch="Uniform"
                                                                                HorizontalAlignment="Center"
-                                                                               VerticalAlignment="Center">
+                                                                               VerticalAlignment="Center"
+                                                                               RenderOptions.BitmapScalingMode="NearestNeighbor">
                                                                             <Image.Source>
                                                                                 <MultiBinding Converter="{StaticResource QrCodeToImageConverter}">
                                                                                     <Binding Path="Content"/>

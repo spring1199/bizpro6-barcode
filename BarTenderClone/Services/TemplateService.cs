@@ -149,8 +149,8 @@ namespace BarTenderClone.Services
                     ImageDataBase64 = e.ImageDataBase64 ?? string.Empty,
                     ImageMimeType = e.ImageMimeType ?? string.Empty,
                     ImageFileName = e.ImageFileName ?? string.Empty,
-                    IsAutoWidth = e.IsAutoWidth ?? (e.Type != ElementType.Text || e.Width <= 0),
-                    IsAutoHeight = e.IsAutoHeight ?? (e.Type != ElementType.Text || e.Height <= 0),
+                    IsAutoWidth = e.IsAutoWidth ?? (e.Type == ElementType.Text || e.Width <= 0),
+                    IsAutoHeight = e.IsAutoHeight ?? (e.Type == ElementType.Text || e.Height <= 0),
                     IsSelected = false
                 }).ToList();
 

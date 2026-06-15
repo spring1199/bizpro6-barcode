@@ -262,9 +262,6 @@
     <sys:String x:Key="MsgSelectTemplateDelete">Please select a template to delete.</sys:String>
     <sys:String x:Key="MsgDeleteTemplateConfirm">Are you sure you want to delete '{0}'?</sys:String>
     <sys:String x:Key="MsgConfirmDeleteTitle">Confirm Delete</sys:String>
-    <sys:String x:Key="MsgEnterTemplateName">Please enter a template name.</sys:String>
-    <sys:String x:Key="MsgDataUpdated">Data updated: </sys:String>
-    <sys:String x:Key="StatusPrintCancelled">Print cancelled.</sys:String>
 
     <!-- Extra Viewmodel and dialogue translations -->
     <sys:String x:Key="MsgClearCanvasConfirm">You have unsaved changes. Are you sure you want to clear the canvas?</sys:String>

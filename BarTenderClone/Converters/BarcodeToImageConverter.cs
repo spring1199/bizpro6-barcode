@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
@@ -15,9 +16,17 @@ namespace BarTenderClone.Converters
     /// Converts barcode content, width, and height to a barcode image.
     /// Uses the same layout math as ZplGeneratorService so the preview occupies
     /// the same box the printer will use.
+    /// Includes a content+size-based cache to avoid re-rendering during drag operations.
     /// </summary>
     public class BarcodeToImageConverter : IMultiValueConverter
     {
+        // Cache barcode images by content+dimensions to avoid re-rendering during drag/move
+        private static readonly Dictionary<string, BitmapSource> _cache = new();
+        private const int MaxCacheSize = 32;
+
+        private static string MakeCacheKey(string content, int width, int height, double barcodeWidth, bool isCentered)
+            => $"{content}|{width}|{height}|{barcodeWidth:F1}|{isCentered}";
+
         public object Convert(object[] values, System.Type targetType, object parameter, CultureInfo culture)
         {
             // values[0] = Content (string)
@@ -54,10 +63,13 @@ namespace BarTenderClone.Converters
                     Math.Round(elementHeight),
                     Math.Round(LabelSizeHelper.MmToScreenPixels(5)));
 
-                var layout = LabelSizeHelper.CalculateCode128Layout(content, elementWidth, printerDpi);
-                double barcodeWidth = Math.Max(
-                    layout.ActualWidthPixels,
-                    LabelSizeHelper.CalculateCode128Width(content, printerDpi));
+                double barcodeWidth = elementWidth;
+
+                // Check cache first — avoid expensive re-render during drag/move
+                var cacheKey = MakeCacheKey(content, width, height, barcodeWidth, isCentered);
+                if (_cache.TryGetValue(cacheKey, out var cached))
+                    return cached;
+
                 var barcodeSource = CreateBarcodeImage(content, barcodeWidth, height);
 
                 // Create visual
@@ -66,16 +78,19 @@ namespace BarTenderClone.Converters
                 {
                     dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
 
-                    double totalBarsWidth = barcodeSource.Width;
-                    double startX = isCentered
-                        ? Math.Max(0, (width - totalBarsWidth) / 2)
-                        : 0;
-                    dc.DrawImage(barcodeSource, new Rect(startX, 0, barcodeSource.Width, barcodeSource.Height));
+                    // Stretch the barcode to fill the entire element width and height (no gaps)
+                    dc.DrawImage(barcodeSource, new Rect(0, 0, width, height));
                 }
 
                 RenderTargetBitmap bmp = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
                 bmp.Render(drawingVisual);
                 bmp.Freeze();
+
+                // Store in cache (evict oldest entries if over limit)
+                if (_cache.Count >= MaxCacheSize)
+                    _cache.Clear();
+                _cache[cacheKey] = bmp;
+
                 return bmp;
             }
             catch (Exception)
@@ -124,17 +139,65 @@ namespace BarTenderClone.Converters
 
             using (image)
             {
-                using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-                using var stream = data.AsStream();
+                using var bitmap = SKBitmap.FromImage(image);
 
-                var bitmap = new BitmapImage();
-                bitmap.BeginInit();
-                bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                bitmap.StreamSource = stream;
-                bitmap.EndInit();
-                bitmap.Freeze();
+                // Find horizontal bounds of the black barcode bars to crop quiet zones and gaps
+                int left = bitmap.Width;
+                int right = -1;
 
-                return bitmap;
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        var color = bitmap.GetPixel(x, y);
+                        // Check if pixel is dark (part of the barcode bars)
+                        if (color.Red < 128 && color.Green < 128 && color.Blue < 128)
+                        {
+                            if (x < left) left = x;
+                            if (x > right) right = x;
+                        }
+                    }
+                }
+
+                SKBitmap finalBitmap = bitmap;
+                bool isCropped = false;
+
+                if (right >= left && (left > 0 || right < bitmap.Width - 1))
+                {
+                    int croppedWidth = right - left + 1;
+                    var croppedBitmap = new SKBitmap(croppedWidth, bitmap.Height);
+                    using (var canvas = new SKCanvas(croppedBitmap))
+                    {
+                        canvas.Clear(SKColors.White);
+                        var srcRect = new SKRect(left, 0, right + 1, bitmap.Height);
+                        var destRect = new SKRect(0, 0, croppedWidth, bitmap.Height);
+                        canvas.DrawBitmap(bitmap, srcRect, destRect);
+                    }
+                    finalBitmap = croppedBitmap;
+                    isCropped = true;
+                }
+
+                try
+                {
+                    using SKData data = finalBitmap.Encode(SKEncodedImageFormat.Png, 100);
+                    using var stream = data.AsStream();
+
+                    var wpfBitmap = new BitmapImage();
+                    wpfBitmap.BeginInit();
+                    wpfBitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    wpfBitmap.StreamSource = stream;
+                    wpfBitmap.EndInit();
+                    wpfBitmap.Freeze();
+
+                    return wpfBitmap;
+                }
+                finally
+                {
+                    if (isCropped)
+                    {
+                        finalBitmap.Dispose();
+                    }
+                }
             }
         }
     }

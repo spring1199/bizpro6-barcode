@@ -175,7 +175,7 @@ namespace BarTenderClone.Services
                 element.IsCentered,
                 element.RotationDegrees);
             var typeface = new Typeface(
-                new FontFamily("Segoe UI"),
+                new FontFamily(LabelSizeHelper.DEFAULT_FONT_FAMILY),
                 FontStyles.Normal,
                 element.IsBold ? FontWeights.Bold : FontWeights.Normal,
                 FontStretches.Normal);
@@ -235,34 +235,34 @@ namespace BarTenderClone.Services
             if (string.IsNullOrEmpty(content))
                 return;
 
-            var size = Math.Max(1, Math.Min(width, height));
-            var moduleCount = 21;
-            var moduleSize = Math.Max(1, Math.Floor(size / moduleCount));
-            var actualSize = moduleCount * moduleSize;
-            var x0 = element.X + (width - actualSize) / 2;
-            var y0 = element.Y + (height - actualSize) / 2;
-            var rng = new Random(content.GetHashCode());
-
-            dc.DrawRectangle(Brushes.White, null, new Rect(x0, y0, actualSize, actualSize));
-
-            for (var row = 0; row < moduleCount; row++)
+            try
             {
-                for (var col = 0; col < moduleCount; col++)
+                using (var qrGenerator = new QRCoder.QRCodeGenerator())
+                using (var qrCodeData = qrGenerator.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M))
+                using (var qrCode = new QRCoder.PngByteQRCode(qrCodeData))
                 {
-                    var isBlack = IsFinderPattern(row, col, moduleCount)
-                        ? IsFinderPatternBlack(row, col, moduleCount)
-                        : row == 6 || col == 6
-                            ? (row + col) % 2 == 0
-                            : rng.Next(100) < 45;
-
-                    if (isBlack)
+                    // 8 pixels per module is plenty for rendering
+                    byte[] qrCodeAsPngByteArr = qrCode.GetGraphic(8);
+                    using (var ms = new MemoryStream(qrCodeAsPngByteArr))
                     {
-                        dc.DrawRectangle(
-                            Brushes.Black,
-                            null,
-                            new Rect(x0 + col * moduleSize, y0 + row * moduleSize, moduleSize, moduleSize));
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.StreamSource = ms;
+                        bmp.EndInit();
+                        bmp.Freeze();
+
+                        var size = Math.Min(width, height);
+                        var x0 = element.X + (width - size) / 2;
+                        var y0 = element.Y + (height - size) / 2;
+
+                        dc.DrawImage(bmp, new Rect(x0, y0, size, size));
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error drawing QR Code in engine: {ex.Message}");
             }
         }
 
@@ -321,7 +321,7 @@ namespace BarTenderClone.Services
             }
 
             var label = $"{Math.Round(LabelSizeHelper.ScreenPixelsToInches(width) * LabelSizeHelper.MM_PER_INCH, 1)}x{Math.Round(LabelSizeHelper.ScreenPixelsToInches(height) * LabelSizeHelper.MM_PER_INCH, 1)}mm";
-            var typeface = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+            var typeface = new Typeface(new FontFamily(LabelSizeHelper.DEFAULT_FONT_FAMILY), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
             var text = new FormattedText(
                 label,
                 CultureInfo.CurrentUICulture,

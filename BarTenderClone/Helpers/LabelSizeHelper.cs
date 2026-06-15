@@ -42,6 +42,10 @@ namespace BarTenderClone.Helpers
         // Adjust if printed text appears too small/large vs screen preview
         public const double FONT_SCALING_FACTOR = 1.5;
 
+        // Default font family used for all text measurement and rendering
+        // Must match the font configured in App.xaml / MainWindow.xaml
+        public const string DEFAULT_FONT_FAMILY = "Inter, Segoe UI, Arial, sans-serif";
+
         // Font width as percentage of height (0.8 = 80% width for lighter/non-bold text)
         // Adjust: 0.75 = thinner, 0.85 = slightly bolder, 1.0 = bold (equal width/height)
         public const double FONT_WIDTH_RATIO = 0.8;

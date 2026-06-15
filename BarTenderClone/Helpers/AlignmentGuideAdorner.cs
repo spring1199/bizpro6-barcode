@@ -266,15 +266,7 @@ namespace BarTenderClone.Helpers
         protected override void OnRender(DrawingContext drawingContext)
         {
             base.OnRender(drawingContext);
-
-            var guides = _currentResult.Guides;
-            if (guides.Count == 0)
-                return;
-
-            foreach (var guide in guides)
-            {
-                DrawGuide(drawingContext, guide);
-            }
+            // Guide lines rendering removed per user request, but snapping logic is kept active.
         }
 
         /// <summary>

@@ -104,28 +104,142 @@ namespace BarTenderClone.Helpers
             var totalBytes = bytesPerRow * height;
             var hex = new StringBuilder(totalBytes * 2);
 
-            for (var y = 0; y < height; y++)
+            // Use LockBits for bulk pixel access instead of per-pixel GetPixel()
+            // This provides 100-1000x speedup by avoiding per-pixel lock/unlock overhead
+            var rect = new Rectangle(0, 0, width, height);
+            var bitmapData = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
             {
-                for (var byteIndex = 0; byteIndex < bytesPerRow; byteIndex++)
+                var stride = bitmapData.Stride;
+                var pixelData = new byte[stride * height];
+                System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, pixelData, 0, pixelData.Length);
+
+                for (var y = 0; y < height; y++)
                 {
-                    var value = 0;
-                    for (var bit = 0; bit < 8; bit++)
+                    var rowOffset = y * stride;
+                    for (var byteIndex = 0; byteIndex < bytesPerRow; byteIndex++)
                     {
-                        var x = byteIndex * 8 + bit;
-                        if (x >= width)
-                            continue;
+                        var value = 0;
+                        for (var bit = 0; bit < 8; bit++)
+                        {
+                            var x = byteIndex * 8 + bit;
+                            if (x >= width)
+                                continue;
 
-                        var color = bitmap.GetPixel(x, y);
-                        var isBlack = color.A >= 128 && ((color.R * 299 + color.G * 587 + color.B * 114) / 1000) < 180;
-                        if (isBlack)
-                            value |= 1 << (7 - bit);
+                            var pixelOffset = rowOffset + x * 4; // 4 bytes per pixel (ARGB)
+                            var b = pixelData[pixelOffset];
+                            var g = pixelData[pixelOffset + 1];
+                            var r = pixelData[pixelOffset + 2];
+                            var a = pixelData[pixelOffset + 3];
+
+                            var isBlack = a >= 128 && ((r * 299 + g * 587 + b * 114) / 1000) < 180;
+                            if (isBlack)
+                                value |= 1 << (7 - bit);
+                        }
+
+                        hex.Append(value.ToString("X2"));
                     }
-
-                    hex.Append(value.ToString("X2"));
                 }
             }
+            finally
+            {
+                bitmap.UnlockBits(bitmapData);
+            }
 
-            return $"^GFA,{totalBytes},{totalBytes},{bytesPerRow},{hex}";
+            var compressedHex = CompressZplGraphics(hex.ToString(), bytesPerRow);
+            return $"^GFA,{totalBytes},{totalBytes},{bytesPerRow},{compressedHex}";
+        }
+
+        public static string CompressZplGraphics(string hex, int bytesPerRow)
+        {
+            var charsPerRow = bytesPerRow * 2;
+            var compressed = new StringBuilder(hex.Length);
+            
+            for (int i = 0; i < hex.Length; i += charsPerRow)
+            {
+                int length = Math.Min(charsPerRow, hex.Length - i);
+                string row = hex.Substring(i, length);
+                
+                if (IsAllSameChar(row, '0'))
+                {
+                    compressed.Append(",");
+                    continue;
+                }
+                
+                if (IsAllSameChar(row, 'F'))
+                {
+                    compressed.Append("!");
+                    continue;
+                }
+                
+                int col = 0;
+                while (col < row.Length)
+                {
+                    if (IsAllSameChar(row.Substring(col), '0'))
+                    {
+                        compressed.Append(",");
+                        break;
+                    }
+                    
+                    if (IsAllSameChar(row.Substring(col), 'F'))
+                    {
+                        compressed.Append("!");
+                        break;
+                    }
+                    
+                    char c = row[col];
+                    int runLength = 1;
+                    while (col + runLength < row.Length && row[col + runLength] == c)
+                    {
+                        runLength++;
+                    }
+                    
+                    if (runLength == 1)
+                    {
+                        compressed.Append(c);
+                    }
+                    else
+                    {
+                        int count = runLength;
+                        
+                        while (count >= 400)
+                        {
+                            compressed.Append('z');
+                            count -= 400;
+                        }
+                        
+                        if (count >= 20)
+                        {
+                            int val = (count / 20) * 20;
+                            char codeChar = (char)('g' + (val / 20) - 1);
+                            compressed.Append(codeChar);
+                            count -= val;
+                        }
+                        
+                        if (count > 0)
+                        {
+                            char codeChar = (char)('G' + count - 1);
+                            compressed.Append(codeChar);
+                        }
+                        
+                        compressed.Append(c);
+                    }
+                    
+                    col += runLength;
+                }
+            }
+            
+            return compressed.ToString();
+        }
+
+        private static bool IsAllSameChar(string str, char target)
+        {
+            for (int i = 0; i < str.Length; i++)
+            {
+                if (str[i] != target)
+                    return false;
+            }
+            return true;
         }
     }
 }
