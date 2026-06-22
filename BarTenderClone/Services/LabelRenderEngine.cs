@@ -215,18 +215,38 @@ namespace BarTenderClone.Services
             double height)
         {
             var content = SanitizeBarcodeData(LabelFieldValueResolver.ResolveVisualValue(element, dataSource));
-            var layout = LabelSizeHelper.CalculateCode128Layout(content, width, config.Dpi);
-            var barcodeWidth = Math.Max(
-                layout.ActualWidthPixels,
-                LabelSizeHelper.CalculateCode128Width(content, config.Dpi));
-            var image = CreateBarcodeImage(content, barcodeWidth, Math.Max(height, LabelSizeHelper.MmToScreenPixels(5)));
-            var drawWidth = Math.Max(barcodeWidth, image.Width);
+            var (image, drawWidth) = BuildBarcodeImage(content, width, height, config.Dpi);
             var x = element.IsCentered
                 ? element.X + Math.Max(0, (width - drawWidth) / 2)
                 : element.X;
 
             dc.DrawRectangle(Brushes.White, null, new Rect(element.X, element.Y, width, height));
             dc.DrawImage(image, new Rect(x, element.Y, drawWidth, height));
+        }
+
+        /// <summary>
+        /// Single source of truth for Code 128 rendering shared by the print raster and the
+        /// designer preview converter, so the on-screen barcode matches what is printed
+        /// (same width math, same quiet zones — no preview-only crop/stretch).
+        /// </summary>
+        /// <param name="rawContent">Barcode content (will be sanitized).</param>
+        /// <param name="boxWidthPx">Element box width in screen pixels.</param>
+        /// <param name="boxHeightPx">Element box height in screen pixels.</param>
+        /// <param name="dpi">Active printer DPI used by the shared layout math.</param>
+        internal static (BitmapSource image, double drawWidth) BuildBarcodeImage(
+            string rawContent,
+            double boxWidthPx,
+            double boxHeightPx,
+            int dpi)
+        {
+            var content = SanitizeBarcodeData(rawContent);
+            var layout = LabelSizeHelper.CalculateCode128Layout(content, boxWidthPx, dpi);
+            var barcodeWidth = Math.Max(
+                layout.ActualWidthPixels,
+                LabelSizeHelper.CalculateCode128Width(content, dpi));
+            var image = CreateBarcodeImage(content, barcodeWidth, Math.Max(boxHeightPx, LabelSizeHelper.MmToScreenPixels(5)));
+            var drawWidth = Math.Max(barcodeWidth, image.Width);
+            return (image, drawWidth);
         }
 
         private static void DrawQrCode(DrawingContext dc, LabelElement element, ResourceItem? dataSource, double width, double height)

@@ -17,6 +17,7 @@ namespace BarTenderClone.Services
         private readonly HttpClient _httpClient;
         private readonly IAuthenticationService _authService;
         private readonly ISessionService _sessionService;
+        private readonly ILoggingService _logger;
         private readonly string[] _configuredBaseUrls;
         private const string ApiUrl = "/api/services/app/Resource/Resources";
         private const string ResourceDefinitionsUrl = "/api/services/app/DynamicEntity/GetResourceDefinitions";
@@ -27,15 +28,16 @@ namespace BarTenderClone.Services
             new("product_rfid", "product", "product_rfid.CreationTime")
         };
 
-        public ApiService(HttpClient httpClient, IAuthenticationService authService, ISessionService sessionService, IConfiguration configuration)
+        public ApiService(HttpClient httpClient, IAuthenticationService authService, ISessionService sessionService, IConfiguration configuration, ILoggingService logger)
         {
             _httpClient = httpClient;
             _authService = authService;
             _sessionService = sessionService;
+            _logger = logger;
             _configuredBaseUrls = GetConfiguredBaseUrls(configuration);
         }
 
-        public async Task<ResourceResult?> GetResourcesAsync(int skip = 0, int take = 25, string filter = "")
+        public async Task<ResourceResult?> GetResourcesAsync(int skip = 0, int take = 25, ResourceFilterOptions? filter = null)
         {
             if (!_authService.IsAuthenticated || string.IsNullOrEmpty(_authService.AccessToken))
             {
@@ -51,7 +53,7 @@ namespace BarTenderClone.Services
                 foreach (var profile in ResourceQueryProfiles)
                 {
                     attemptedKeys.Add(profile.ResourceKey);
-                    var requestModel = CreateResourceRequest(profile, skip, take);
+                    var requestModel = CreateResourceRequest(profile, skip, take, filter);
                     var jsonContent = JsonConvert.SerializeObject(requestModel);
                     using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
@@ -141,7 +143,7 @@ namespace BarTenderClone.Services
 
                 if (string.IsNullOrWhiteSpace(rfid))
                 {
-                    System.Diagnostics.Debug.WriteLine("UpdatePrintStatus: RFID value not found.");
+                    _logger.LogWarning("UpdatePrintStatus aborted: RFID value not found on item.");
                     return false;
                 }
 
@@ -154,6 +156,8 @@ namespace BarTenderClone.Services
                 };
 
                 var json = JsonConvert.SerializeObject(payload);
+                _logger.LogInfo($"UpdatePrintStatus request: rfid={rfid}, isPrint={payload.IsPrint}");
+
                 foreach (var baseUrl in GetCandidateBaseUrls())
                 {
                     using var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -166,18 +170,22 @@ namespace BarTenderClone.Services
                     var response = await _httpClient.SendAsync(request);
                     var responseBody = await response.Content.ReadAsStringAsync();
 
+                    // Always persist the exact request/response so print-status failures are diagnosable in the field.
+                    await WriteApiTraceAsync(baseUrl, json, $"HTTP {(int)response.StatusCode} {response.StatusCode}\n{responseBody}");
+
                     if (response.IsSuccessStatusCode && IsSuccessfulUpdatePrintStatusResponse(responseBody))
                     {
                         _sessionService.ApiBaseUrl = NormalizeBaseUrl(baseUrl);
+                        _logger.LogInfo($"UpdatePrintStatus OK ({baseUrl}) for rfid={rfid}, isPrint={payload.IsPrint}");
                         return true;
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"UpdatePrintStatus failed for {baseUrl}: {response.StatusCode}\n{responseBody}");
+                    _logger.LogWarning($"UpdatePrintStatus failed ({baseUrl}) rfid={rfid}: HTTP {(int)response.StatusCode}; body={Truncate(responseBody, 500)}");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"UpdatePrintStatus exception: {ex.Message}");
+                _logger.LogError("UpdatePrintStatus exception", ex);
             }
 
             return false;
@@ -273,7 +281,7 @@ namespace BarTenderClone.Services
             return false;
         }
 
-        private static ResourceRequest CreateResourceRequest(ResourceQueryProfile profile, int skip, int take)
+        private static ResourceRequest CreateResourceRequest(ResourceQueryProfile profile, int skip, int take, ResourceFilterOptions? filter = null)
         {
             return new ResourceRequest
             {
@@ -299,8 +307,40 @@ namespace BarTenderClone.Services
                         Selector = profile.SortSelector,
                         Desc = true
                     }
-                }
+                },
+                Filter = BuildDevExtremeFilter(profile.ResourceKey, filter)
             };
+        }
+
+        /// <summary>
+        /// Translates the UI's <see cref="ResourceFilterOptions"/> into a DevExtreme filter array,
+        /// qualifying each selector with the active resource alias (same convention the sort uses,
+        /// e.g. "tms_product_rfid.isPrint"). Returns null when there is nothing to filter so the
+        /// payload stays identical to the legacy unfiltered request.
+        /// </summary>
+        private static object? BuildDevExtremeFilter(string alias, ResourceFilterOptions? filter)
+        {
+            if (filter is null || !filter.HasAny)
+                return null;
+
+            var parts = new List<object>();
+            void Add(object expression)
+            {
+                if (parts.Count > 0) parts.Add("and");
+                parts.Add(expression);
+            }
+
+            if (filter.IsPrint.HasValue)
+                Add(new object[] { $"{alias}.isPrint", "=", filter.IsPrint.Value });
+            if (filter.Status.HasValue)
+                Add(new object[] { $"{alias}.status", "=", filter.Status.Value });
+            if (filter.CreatedFrom.HasValue)
+                Add(new object[] { $"{alias}.CreationTime", ">=", filter.CreatedFrom.Value.ToString("yyyy-MM-dd HH:mm:ss") });
+            if (filter.CreatedTo.HasValue)
+                Add(new object[] { $"{alias}.CreationTime", "<=", filter.CreatedTo.Value.ToString("yyyy-MM-dd HH:mm:ss") });
+
+            // A single condition is passed bare; multiple are AND-joined per DevExtreme grammar.
+            return parts.Count == 1 ? parts[0] : parts;
         }
 
         private async Task<List<string>> DiscoverCandidateResourceKeysAsync(string baseUrl)
@@ -611,7 +651,7 @@ namespace BarTenderClone.Services
             return score;
         }
 
-        private static bool IsSuccessfulUpdatePrintStatusResponse(string responseBody)
+        private bool IsSuccessfulUpdatePrintStatusResponse(string responseBody)
         {
             if (string.IsNullOrWhiteSpace(responseBody))
                 return true;
@@ -619,6 +659,15 @@ namespace BarTenderClone.Services
             try
             {
                 var json = JObject.Parse(responseBody);
+
+                // ABP envelope always reports failures via success:false + a populated error object.
+                // Honour that explicitly so a backend rejection is never masked as success.
+                var successToken = json["success"];
+                var errorToken = json["error"];
+                if (successToken != null && successToken.Type == JTokenType.Boolean && !successToken.Value<bool>())
+                    return false;
+                if (errorToken != null && errorToken.Type == JTokenType.Object)
+                    return false;
 
                 // ABP framework boolean response: {"result": true, "success": true}
                 var resultToken = json["result"];
@@ -634,16 +683,24 @@ namespace BarTenderClone.Services
                 }
 
                 // Top-level success field: {"success": true}
-                var successToken = json["success"];
                 if (successToken != null && successToken.Type == JTokenType.Boolean)
                     return successToken.Value<bool>();
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning($"UpdatePrintStatus response not parseable, assuming success: {ex.Message}");
+                return true;
             }
 
-            // If we can't parse but HTTP was 200, assume success
+            // Parsed but no recognizable success/error markers — assume success but record it for diagnosis.
+            _logger.LogWarning($"UpdatePrintStatus response had no success/error marker, assuming success: {Truncate(responseBody, 300)}");
             return true;
+        }
+
+        private static string Truncate(string value, int max)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            return value.Length <= max ? value : value.Substring(0, max) + "…";
         }
 
         private sealed record ResourceQueryProfile(

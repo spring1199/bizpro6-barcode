@@ -190,6 +190,15 @@ namespace BarTenderClone.Models
     }
 
     /// <summary>
+    /// A single RFID lifecycle status (Төлөв) choice for the server-side fetch dropdown.
+    /// <see cref="Value"/> is the backend <c>status</c> integer, or null for "all".
+    /// </summary>
+    public sealed record RfidStatusFilterOption(string Label, int? Value)
+    {
+        public override string ToString() => Label;
+    }
+
+    /// <summary>
     /// Pagination state management
     /// </summary>
     public partial class PaginationState : ObservableObject

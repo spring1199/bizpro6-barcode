@@ -147,6 +147,26 @@ namespace BarTenderClone.ViewModels
         [ObservableProperty]
         private ProductFilterCriteria _filterCriteria = new();
 
+        /// <summary>Enum values for the server-side fetch print-status dropdown.</summary>
+        public Array PrintStatusFilterOptions { get; } = Enum.GetValues(typeof(PrintStatusFilter));
+
+        /// <summary>RFID lifecycle status (Төлөв) options for the server-side fetch dropdown.
+        /// Values match the backend <c>status</c> field; null = no constraint (all).</summary>
+        public List<RfidStatusFilterOption> RfidStatusFilterOptions { get; } = new()
+        {
+            new RfidStatusFilterOption("Бүгд", null),
+            new RfidStatusFilterOption("Идэвхтэй", 1),
+            new RfidStatusFilterOption("Идэвхгүй", 0),
+            new RfidStatusFilterOption("Борлуулсан", 2),
+            new RfidStatusFilterOption("Бусад", 3),
+            new RfidStatusFilterOption("Гэмтэлтэй", 4),
+            new RfidStatusFilterOption("Хулгайд алдсан", 5),
+            new RfidStatusFilterOption("Актласан", 6),
+        };
+
+        [ObservableProperty]
+        private RfidStatusFilterOption? _selectedRfidStatusFilter;
+
         partial void OnFilterCriteriaChanged(ProductFilterCriteria? oldValue, ProductFilterCriteria newValue)
         {
             // Unsubscribe from old
@@ -372,6 +392,9 @@ namespace BarTenderClone.ViewModels
             LoadPrinters();
             UpdateTemplateSize(); // Init defaults
             RefreshResourceMetadata(Array.Empty<ResourceItem>());
+
+            // Default the fetch Төлөв dropdown to "All" (no status constraint).
+            SelectedRfidStatusFilter = RfidStatusFilterOptions[0];
 
             // Subscribe to elements collection changes to track dirty state
             Elements.CollectionChanged += (s, e) => IsDirty = true;
@@ -1322,6 +1345,33 @@ namespace BarTenderClone.ViewModels
         /// <summary>
         /// Applies all active filters and updates pagination
         /// </summary>
+        /// <summary>
+        /// Translates the active <see cref="FilterCriteria"/> into a server-side fetch filter.
+        /// Only constraints the backend applies efficiently (print status, created-date range)
+        /// are mapped; the rest stay client-side refinement. Returns null when nothing is set,
+        /// preserving the original "load everything" behaviour (no regression by default).
+        /// </summary>
+        private ResourceFilterOptions? BuildServerFilterFromCriteria()
+        {
+            var options = new ResourceFilterOptions
+            {
+                IsPrint = FilterCriteria.StatusFilter switch
+                {
+                    PrintStatusFilter.NotPrinted => 1,
+                    PrintStatusFilter.Printed => 2,
+                    _ => null  // All / Error have no direct backend equivalent
+                },
+                Status = SelectedRfidStatusFilter?.Value  // RFID lifecycle status (Төлөв)
+            };
+
+            if (FilterCriteria.StartDate.HasValue)
+                options.CreatedFrom = FilterCriteria.StartDate.Value.Date;
+            if (FilterCriteria.EndDate.HasValue)
+                options.CreatedTo = FilterCriteria.EndDate.Value.Date.AddDays(1).AddSeconds(-1); // inclusive end-of-day
+
+            return options.HasAny ? options : null;
+        }
+
         private void ApplyFiltersAndPagination()
         {
             // Start with all products
@@ -1547,6 +1597,11 @@ namespace BarTenderClone.ViewModels
                 Products.Clear();
                 SelectedProducts.Clear();
 
+                // Build a server-side filter from the current criteria so we only download the
+                // rows we actually need (print status + created-date range). This both speeds up
+                // loading huge catalogues and ensures freshly created items appear on each fetch.
+                var serverFilter = BuildServerFilterFromCriteria();
+
                 // Fetch all data in chunks of 1000
                 const int chunkSize = 1000;
                 int skip = 0;
@@ -1554,7 +1609,7 @@ namespace BarTenderClone.ViewModels
 
                 do
                 {
-                    var result = await _apiService.GetResourcesAsync(skip, chunkSize);
+                    var result = await _apiService.GetResourcesAsync(skip, chunkSize, serverFilter);
 
                     if (result == null)
                         break;
@@ -2141,10 +2196,16 @@ namespace BarTenderClone.ViewModels
                 RetryCount = 3
             };
 
-            // Create print options with detailed tracking enabled for multi-label prints
+            // Create print options. Per-label tracking sends one spooler job per label, which is
+            // ONLY needed when each label carries unique data (sequential RFID encoding). For plain
+            // multi-copy prints we must NOT fan out N jobs: the spooler reports each RAW job
+            // "complete" the instant its bytes reach the port (before the printer has physically
+            // printed), so the next job is fired immediately and the printer's input buffer
+            // overflows — corrupting later labels. Routing non-RFID copies through a single ^PQ job
+            // lets the printer manage the copies internally and removes that race entirely.
             var printOptions = new PrintOptions
             {
-                EnableDetailedTracking = Quantity > 1, // Only enable for multi-label prints
+                EnableDetailedTracking = Quantity > 1 && EnableRfidEncoding,
                 StopOnFirstFailure = false, // Continue printing all labels
                 DelayBetweenLabelsMs = EnableRfidEncoding ? 300 : 100, // Longer delay for RFID
                 MaxParallelLabels = 1 // Sequential for safety
@@ -2367,10 +2428,12 @@ namespace BarTenderClone.ViewModels
                 RetryCount = 3
             };
 
-            // Create print options
+            // Create print options. See PrintSingleWithRfidAsync for why per-label tracking is gated
+            // on RFID encoding: plain multi-copy prints go through a single ^PQ job to avoid the
+            // spooler buffer-overflow race that corrupts later labels.
             var printOptions = new PrintOptions
             {
-                EnableDetailedTracking = Quantity > 1,
+                EnableDetailedTracking = Quantity > 1 && EnableRfidEncoding,
                 StopOnFirstFailure = false,
                 DelayBetweenLabelsMs = EnableRfidEncoding ? 300 : 100,
                 MaxParallelLabels = 1

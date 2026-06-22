@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>BizPro6Barcode</AssemblyName>
     <Product>BizPro Designer</Product>
-    <Version>3.1.5</Version>
-    <AssemblyVersion>3.1.5.0</AssemblyVersion>
-    <FileVersion>3.1.5.0</FileVersion>
+    <Version>4.0.1</Version>
+    <AssemblyVersion>4.0.1.0</AssemblyVersion>
+    <FileVersion>4.0.1.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

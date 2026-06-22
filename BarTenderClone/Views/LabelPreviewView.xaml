@@ -36,7 +36,7 @@
 
                     <!-- Panel Header -->
                     <Border Grid.Row="0" Background="{StaticResource ZebraStripeBrush}"
-                            Padding="16,12" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                            Padding="16,8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -62,10 +62,15 @@
                         </Grid>
                     </Border>
 
-                    <!-- Filter Header -->
+                    <!-- Filter header + server-side Fetch bar (combined on one row to save height) -->
                     <Border Grid.Row="1" Padding="16,8" Background="#F5F5F5">
                         <Grid>
-                            <StackPanel Orientation="Horizontal">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="{DynamicResource FilterHeader}" Style="{StaticResource SubsectionStyle}"
                                            VerticalAlignment="Center" Margin="0"/>
                                 <!-- Active Filter Badge -->
@@ -76,15 +81,39 @@
                                                Foreground="White" FontSize="10" FontWeight="Bold"/>
                                 </Border>
                             </StackPanel>
-                            <Button Content="{DynamicResource BtnClearAll}" Command="{Binding ClearAllFiltersCommand}"
-                                    Style="{StaticResource SecondaryButtonStyle}"
-                                    HorizontalAlignment="Right" Height="28" Padding="12,4"
-                                    Visibility="{Binding FilterCriteria.HasActiveFilters, Converter={StaticResource BoolToVisConverter}}"/>
+
+                            <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource FetchStatusLabel}" Style="{StaticResource CaptionTextStyle}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox ItemsSource="{Binding PrintStatusFilterOptions}"
+                                          SelectedItem="{Binding FilterCriteria.StatusFilter, Mode=TwoWay}"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Width="110" MinHeight="32" Margin="0,2,12,2" VerticalContentAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource FetchRfidStatusLabel}" Style="{StaticResource CaptionTextStyle}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox ItemsSource="{Binding RfidStatusFilterOptions}"
+                                          SelectedItem="{Binding SelectedRfidStatusFilter, Mode=TwoWay}"
+                                          DisplayMemberPath="Label"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Width="130" MinHeight="32" Margin="0,2,12,2" VerticalContentAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource FetchDateLabel}" Style="{StaticResource CaptionTextStyle}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding FilterCriteria.StartDate, Mode=TwoWay}"
+                                            MinHeight="32" Margin="0,2,6,2" VerticalContentAlignment="Center"/>
+                                <TextBlock Text="—" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding FilterCriteria.EndDate, Mode=TwoWay}"
+                                            MinHeight="32" Margin="0,2,12,2" VerticalContentAlignment="Center"/>
+                                <Button Content="{DynamicResource BtnFetchData}" Command="{Binding LoadDataCommand}"
+                                        Style="{StaticResource PrimaryButtonStyle}" MinHeight="32" Padding="14,4" Margin="0,2,8,2"/>
+                                <Button Content="{DynamicResource BtnClearAll}" Command="{Binding ClearAllFiltersCommand}"
+                                        Style="{StaticResource SecondaryButtonStyle}" MinHeight="32" Padding="12,4" Margin="0,2,0,2"
+                                        Visibility="{Binding FilterCriteria.HasActiveFilters, Converter={StaticResource BoolToVisConverter}}"/>
+                            </WrapPanel>
                         </Grid>
                     </Border>
 
                     <!-- Quick Search Box -->
-                    <Border Grid.Row="2" Padding="16,12" Background="{StaticResource SurfaceBrush}">
+                    <Border Grid.Row="2" Padding="16,8" Background="{StaticResource SurfaceBrush}">
                         <Grid>
                             <TextBox Text="{Binding QuickSearchText, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource SearchTextBoxStyle}"
@@ -99,11 +128,11 @@
                         </Grid>
                     </Border>
 
-                    <!-- Advanced Filters placeholder -->
+                    <!-- (server-side Fetch controls merged into the Filters bar in Row 1) -->
                     <Border Grid.Row="3" Height="0" Visibility="Collapsed"/>
 
                     <!-- Pagination Controls -->
-                    <Border Grid.Row="4" Padding="12,8" Background="{StaticResource SurfaceBrush}"
+                    <Border Grid.Row="4" Padding="12,5" Background="{StaticResource SurfaceBrush}"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                         <Grid>
                             <Grid.ColumnDefinitions>

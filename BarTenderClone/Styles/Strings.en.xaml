@@ -9,7 +9,7 @@
     <sys:String x:Key="MenuSettings">Settings</sys:String>
     <sys:String x:Key="TextDarkMode">Dark Mode</sys:String>
     <sys:String x:Key="BtnLogout">Logout</sys:String>
-    <sys:String x:Key="AppVersion">Version 1.0.0</sys:String>
+    <sys:String x:Key="AppVersion">Version 4.0.1</sys:String>
     
     <!-- Login Screen -->
     <sys:String x:Key="LoginWelcomeBack">Welcome Back</sys:String>
@@ -49,6 +49,10 @@
     <sys:String x:Key="BtnLocation">Location</sys:String>
     <sys:String x:Key="BtnAsset">Asset</sys:String>
     <sys:String x:Key="BtnPrinted">Printed</sys:String>
+    <sys:String x:Key="BtnFetchData">Fetch Data</sys:String>
+    <sys:String x:Key="FetchStatusLabel">Print status:</sys:String>
+    <sys:String x:Key="FetchRfidStatusLabel">RFID status:</sys:String>
+    <sys:String x:Key="FetchDateLabel">Date:</sys:String>
     <sys:String x:Key="BtnSelectAll">Select All</sys:String>
     <sys:String x:Key="BtnUnselectAll">Unselect All</sys:String>
     

@@ -6,7 +6,7 @@ namespace BarTenderClone.Services
 {
     public interface IApiService
     {
-        Task<ResourceResult?> GetResourcesAsync(int skip = 0, int take = 25, string filter = "");
+        Task<ResourceResult?> GetResourcesAsync(int skip = 0, int take = 25, ResourceFilterOptions? filter = null);
 
         /// <summary>
         /// Updates the print status for a specific RFID tag with detailed information

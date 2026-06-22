@@ -33,8 +33,36 @@ namespace BarTenderClone.Models
         [JsonProperty("sort")]
         public List<ResourceSort> Sort { get; set; } = new List<ResourceSort>();
 
+        // DevExtreme-style filter expression: a recursive [selector, op, value] array.
+        // Omitted from the payload when null so existing unfiltered fetches are unchanged.
+        [JsonProperty("filter", NullValueHandling = NullValueHandling.Ignore)]
+        public object? Filter { get; set; }
+
         [JsonProperty("userData")]
         public object UserData { get; set; } = new object();
+    }
+
+    /// <summary>
+    /// Server-side filter request built by the UI and translated into a DevExtreme
+    /// <c>filter</c> array (with the correct resource alias) inside ApiService.
+    /// All fields are optional; null means "no constraint".
+    /// </summary>
+    public class ResourceFilterOptions
+    {
+        /// <summary>Backend print flag: 1 = not printed, 2 = printed.</summary>
+        public int? IsPrint { get; set; }
+
+        /// <summary>RFID lifecycle status (e.g. 0 = new/inactive, 1 = active).</summary>
+        public int? Status { get; set; }
+
+        /// <summary>Inclusive lower bound on CreationTime.</summary>
+        public DateTime? CreatedFrom { get; set; }
+
+        /// <summary>Inclusive upper bound on CreationTime.</summary>
+        public DateTime? CreatedTo { get; set; }
+
+        /// <summary>True when at least one constraint is set.</summary>
+        public bool HasAny => IsPrint.HasValue || Status.HasValue || CreatedFrom.HasValue || CreatedTo.HasValue;
     }
 
     public class ResourceJoin

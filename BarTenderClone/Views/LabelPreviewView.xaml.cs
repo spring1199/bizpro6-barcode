@@ -833,8 +833,8 @@ namespace BarTenderClone.Views
 
             foreach (var column in ProductGrid.Columns)
             {
-                var headerText = column.Header?.ToString() ?? "Unknown";
-                if (headerText == "Select")
+                var headerText = GetColumnDisplayName(column);
+                if (string.IsNullOrWhiteSpace(headerText) || headerText == "Select")
                 {
                     continue;
                 }
@@ -876,11 +876,54 @@ namespace BarTenderClone.Views
             {
                 foreach (var column in ProductGrid.Columns)
                 {
-                    if (column.Header?.ToString() != "Select")
+                    var name = GetColumnDisplayName(column);
+                    if (!string.IsNullOrWhiteSpace(name) && name != "Select")
                         column.Visibility = Visibility.Collapsed;
                 }
             };
             menu.Items.Add(clearAll);
+        }
+
+        /// <summary>
+        /// Resolves a human-readable name for a DataGrid column. Headers in this grid are a
+        /// Grid (name TextBlock + filter button), so <c>Header.ToString()</c> returns the type
+        /// name. This digs out the first non-empty TextBlock text, falling back to SortMemberPath.
+        /// </summary>
+        private static string GetColumnDisplayName(DataGridColumn column)
+        {
+            switch (column.Header)
+            {
+                case null:
+                    return column.SortMemberPath ?? string.Empty;
+                case string s:
+                    return s;
+                case System.Windows.Controls.TextBlock tb:
+                    return tb.Text;
+                case System.Windows.DependencyObject d:
+                    var text = FindFirstTextBlockText(d);
+                    return !string.IsNullOrWhiteSpace(text)
+                        ? text
+                        : (column.SortMemberPath ?? string.Empty);
+                default:
+                    return column.Header.ToString() ?? string.Empty;
+            }
+        }
+
+        private static string? FindFirstTextBlockText(System.Windows.DependencyObject root)
+        {
+            foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root))
+            {
+                if (child is System.Windows.Controls.TextBlock tb && !string.IsNullOrWhiteSpace(tb.Text))
+                    return tb.Text;
+
+                if (child is System.Windows.DependencyObject d)
+                {
+                    var found = FindFirstTextBlockText(d);
+                    if (found != null)
+                        return found;
+                }
+            }
+            return null;
         }
 
         // ===== EXCEL-STYLE COLUMN AUTO-FILTER CODE-BEHIND =====

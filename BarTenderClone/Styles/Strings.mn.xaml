@@ -9,7 +9,7 @@
     <sys:String x:Key="MenuSettings">Тохиргоо</sys:String>
     <sys:String x:Key="TextDarkMode">Харанхуй горим</sys:String>
     <sys:String x:Key="BtnLogout">Системээс гарах</sys:String>
-    <sys:String x:Key="AppVersion">Хувилбар 1.0.0</sys:String>
+    <sys:String x:Key="AppVersion">Хувилбар 4.0.1</sys:String>
     
     <!-- Login Screen -->
     <sys:String x:Key="LoginWelcomeBack">Тавтай морилно уу</sys:String>
@@ -49,6 +49,10 @@
     <sys:String x:Key="BtnLocation">Байршил</sys:String>
     <sys:String x:Key="BtnAsset">Хөрөнгө</sys:String>
     <sys:String x:Key="BtnPrinted">Хэвлэсэн</sys:String>
+    <sys:String x:Key="BtnFetchData">Дата татах</sys:String>
+    <sys:String x:Key="FetchStatusLabel">Хэвлэх төлөв:</sys:String>
+    <sys:String x:Key="FetchRfidStatusLabel">Төлөв:</sys:String>
+    <sys:String x:Key="FetchDateLabel">Огноо:</sys:String>
     <sys:String x:Key="BtnSelectAll">Бүгдийг сонгох</sys:String>
     <sys:String x:Key="BtnUnselectAll">Сонголтыг цуцлах</sys:String>
     
