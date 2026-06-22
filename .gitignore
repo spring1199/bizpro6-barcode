@@ -18,6 +18,9 @@ dist/*
 !dist/installer/
 !dist/installer/*.exe
 
+# WPF temporary project files generated during build
+*_wpftmp.csproj
+
 # Visual Studio cache/options
 .vs/
 *.suo

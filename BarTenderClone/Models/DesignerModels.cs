@@ -24,6 +24,9 @@ namespace BarTenderClone.Models
             get => _width;
             set
             {
+                // Setting an explicit width turns off auto-width even when the numeric
+                // value is unchanged (e.g. re-assigned during rotation/measurement),
+                // so both the changed and unchanged branches must clear the flag.
                 if (SetProperty(ref _width, value))
                 {
                     if (!_isMeasuring)
@@ -44,6 +47,8 @@ namespace BarTenderClone.Models
             get => _height;
             set
             {
+                // See Width: the unchanged branch is intentional and load-bearing
+                // (covered by the "narrow Cyrillic text keeps explicit height" probe).
                 if (SetProperty(ref _height, value))
                 {
                     if (!_isMeasuring)

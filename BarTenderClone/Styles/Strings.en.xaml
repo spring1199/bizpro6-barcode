@@ -9,7 +9,7 @@
     <sys:String x:Key="MenuSettings">Settings</sys:String>
     <sys:String x:Key="TextDarkMode">Dark Mode</sys:String>
     <sys:String x:Key="BtnLogout">Logout</sys:String>
-    <sys:String x:Key="AppVersion">Version 4.0.2</sys:String>
+    <sys:String x:Key="AppVersion">Version 4.0.3</sys:String>
     
     <!-- Login Screen -->
     <sys:String x:Key="LoginWelcomeBack">Welcome Back</sys:String>
