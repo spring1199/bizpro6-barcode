@@ -18,11 +18,45 @@ namespace BarTenderClone.Models
         [ObservableProperty]
         private double _y;
 
-        [ObservableProperty]
         private double _width;
+        public double Width
+        {
+            get => _width;
+            set
+            {
+                if (SetProperty(ref _width, value))
+                {
+                    if (!_isMeasuring)
+                    {
+                        IsAutoWidth = false;
+                    }
+                }
+                else if (!_isMeasuring)
+                {
+                    IsAutoWidth = false;
+                }
+            }
+        }
 
-        [ObservableProperty]
         private double _height;
+        public double Height
+        {
+            get => _height;
+            set
+            {
+                if (SetProperty(ref _height, value))
+                {
+                    if (!_isMeasuring)
+                    {
+                        IsAutoHeight = false;
+                    }
+                }
+                else if (!_isMeasuring)
+                {
+                    IsAutoHeight = false;
+                }
+            }
+        }
 
         [ObservableProperty]
         private string _content = string.Empty;
@@ -65,21 +99,7 @@ namespace BarTenderClone.Models
 
         private bool _isMeasuring;
 
-        partial void OnWidthChanged(double value)
-        {
-            if (!_isMeasuring)
-            {
-                IsAutoWidth = false;
-            }
-        }
 
-        partial void OnHeightChanged(double value)
-        {
-            if (!_isMeasuring)
-            {
-                IsAutoHeight = false;
-            }
-        }
 
         partial void OnRotationDegreesChanged(int value)
         {

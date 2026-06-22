@@ -149,10 +149,27 @@ namespace BarTenderClone.Services
                     ImageDataBase64 = e.ImageDataBase64 ?? string.Empty,
                     ImageMimeType = e.ImageMimeType ?? string.Empty,
                     ImageFileName = e.ImageFileName ?? string.Empty,
-                    IsAutoWidth = e.IsAutoWidth ?? (e.Type == ElementType.Text || e.Width <= 0),
+                    IsAutoWidth = e.IsAutoWidth ?? (e.Type == ElementType.Text || e.IsCentered || e.Width <= 0),
                     IsAutoHeight = e.IsAutoHeight ?? (e.Type == ElementType.Text || e.Height <= 0),
                     IsSelected = false
                 }).ToList();
+
+                // Reset dimensions of auto-sized elements so they measure dynamically
+                foreach (var el in elements)
+                {
+                    bool wasAutoWidth = el.IsAutoWidth;
+                    bool wasAutoHeight = el.IsAutoHeight;
+                    if (wasAutoWidth)
+                    {
+                        el.Width = 0;
+                        el.IsAutoWidth = true;
+                    }
+                    if (wasAutoHeight)
+                    {
+                        el.Height = 0;
+                        el.IsAutoHeight = true;
+                    }
+                }
 
                 return (template, elements, dto.WidthInches, dto.HeightInches);
             }

@@ -9,7 +9,7 @@
     <sys:String x:Key="MenuSettings">Тохиргоо</sys:String>
     <sys:String x:Key="TextDarkMode">Харанхуй горим</sys:String>
     <sys:String x:Key="BtnLogout">Системээс гарах</sys:String>
-    <sys:String x:Key="AppVersion">Хувилбар 4.0.1</sys:String>
+    <sys:String x:Key="AppVersion">Хувилбар 4.0.2</sys:String>
     
     <!-- Login Screen -->
     <sys:String x:Key="LoginWelcomeBack">Тавтай морилно уу</sys:String>

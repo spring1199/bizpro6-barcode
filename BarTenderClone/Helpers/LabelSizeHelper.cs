@@ -249,10 +249,18 @@ namespace BarTenderClone.Helpers
         {
             var safeData = string.IsNullOrWhiteSpace(data) ? "12345678" : data;
             var totalModules = (safeData.Length * CODE128_MODULES_PER_CHAR) + CODE128_OVERHEAD_MODULES;
-            var elementWidthDots = ScreenPixelsToDots(elementWidthPixels, printerDpi);
 
-            var moduleWidthDots = Math.Max(MIN_BARCODE_MODULE_WIDTH, elementWidthDots / totalModules);
-            moduleWidthDots = Math.Clamp(moduleWidthDots, MIN_BARCODE_MODULE_WIDTH, MAX_BARCODE_MODULE_WIDTH);
+            int moduleWidthDots;
+            if (elementWidthPixels <= 0)
+            {
+                moduleWidthDots = CalculateBarcodeModuleWidth(printerDpi);
+            }
+            else
+            {
+                var elementWidthDots = ScreenPixelsToDots(elementWidthPixels, printerDpi);
+                moduleWidthDots = Math.Max(MIN_BARCODE_MODULE_WIDTH, elementWidthDots / totalModules);
+                moduleWidthDots = Math.Clamp(moduleWidthDots, MIN_BARCODE_MODULE_WIDTH, MAX_BARCODE_MODULE_WIDTH);
+            }
 
             var actualWidthDots = totalModules * moduleWidthDots;
             var actualWidthPixels = InchesToScreenPixels((double)actualWidthDots / printerDpi);

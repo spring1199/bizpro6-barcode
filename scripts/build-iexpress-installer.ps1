@@ -22,9 +22,13 @@ Write-Host "================================================" -ForegroundColor C
 Write-Host ""
 
 $isccPaths = @(
+    (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe"),
+    "C:\Users\cloc1\AppData\Local\Programs\Inno Setup 6\ISCC.exe",
     "C:\Users\mooji\AppData\Local\Programs\Inno Setup 6\ISCC.exe",
     "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
     "C:\Program Files\Inno Setup 6\ISCC.exe",
+    (Join-Path $env:LOCALAPPDATA "Programs\Antigravity\resources\app\node_modules\innosetup\bin\ISCC.exe"),
+    "C:\Users\cloc1\AppData\Local\Programs\Antigravity\resources\app\node_modules\innosetup\bin\ISCC.exe",
     "C:\Users\mooji\AppData\Local\Programs\Antigravity\resources\app\node_modules\innosetup\bin\ISCC.exe"
 )
 

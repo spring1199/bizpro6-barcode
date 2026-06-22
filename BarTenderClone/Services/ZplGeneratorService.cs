@@ -176,12 +176,12 @@ namespace BarTenderClone.Services
                     switch (element.Type)
                     {
                         case ElementType.Text:
-                            zpl.AppendLine(GenerateTextElement(element, dataSource, config.Dpi, config.DefaultFont, margins));
+                            zpl.AppendLine(GenerateTextElement(element, dataSource, config.Dpi, config.DefaultFont, margins, template.Width));
                             break;
 
                         case ElementType.Barcode:
                             // ALWAYS handle visual barcode here - even if it's the RFID field
-                            zpl.AppendLine(GenerateBarcodeElement(element, dataSource, config.Dpi, margins));
+                            zpl.AppendLine(GenerateBarcodeElement(element, dataSource, config.Dpi, margins, template.Width));
                             break;
 
                         case ElementType.QRCode:
@@ -222,11 +222,21 @@ namespace BarTenderClone.Services
             return zpl.ToString();
         }
 
-        private string GenerateTextElement(LabelElement element, ResourceItem? dataSource, int dpi, string fontName, (int left, int top, int right, int bottom) margins)
+        private string GenerateTextElement(LabelElement element, ResourceItem? dataSource, int dpi, string fontName, (int left, int top, int right, int bottom) margins, double templateWidth)
         {
             int x = ConvertPositionToDots(element.X, dpi);
             int y = ConvertPositionToDots(element.Y, dpi);
-            int width = Math.Max(ConvertPositionToDots(element.Width, dpi), LabelSizeHelper.MmToDots(1, dpi));
+            int labelWidthDots = ConvertPositionToDots(templateWidth, dpi);
+            int width = element.Width > 0
+                ? ConvertPositionToDots(element.Width, dpi)
+                : element.IsCentered
+                    ? labelWidthDots - margins.left - margins.right
+                    : LabelSizeHelper.MmToDots(1, dpi);
+
+            if (element.IsCentered && element.Width <= 0)
+            {
+                x = margins.left;
+            }
 
             // Zebra resident fonts do not have a true bold flag. A wider font box is the
             // closest deterministic approximation to the bold preview.
@@ -256,7 +266,7 @@ namespace BarTenderClone.Services
             }
         }
 
-        private string GenerateBarcodeElement(LabelElement element, ResourceItem? dataSource, int dpi, (int left, int top, int right, int bottom) margins)
+        private string GenerateBarcodeElement(LabelElement element, ResourceItem? dataSource, int dpi, (int left, int top, int right, int bottom) margins, double templateWidth)
         {
             int y = ConvertPositionToDots(element.Y, dpi);
             int height = ConvertPositionToDots(element.Height, dpi);
@@ -277,11 +287,9 @@ namespace BarTenderClone.Services
             int x;
             if (element.IsCentered)
             {
-                // Center barcode within element's defined X position and width
-                int elementX = ConvertPositionToDots(element.X, dpi);
-
-                // Calculate centered X position within the element's bounding box
-                x = elementX + Math.Max(0, (elementWidthDots - actualBarcodeWidth) / 2);
+                int labelWidthDots = ConvertPositionToDots(templateWidth, dpi);
+                int printableWidth = labelWidthDots - margins.left - margins.right;
+                x = margins.left + Math.Max(0, (printableWidth - actualBarcodeWidth) / 2);
             }
             else
             {

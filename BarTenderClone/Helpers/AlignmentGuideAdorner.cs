@@ -388,7 +388,7 @@ namespace BarTenderClone.Helpers
             var threshold = SnapThresholdPixels / zoom;
 
             // Compute visual bounds of the dragged element
-            var draggedBounds = DesignerInteractionHelper.GetVisualBounds(draggedElement);
+            var draggedBounds = DesignerInteractionHelper.GetVisualBounds(draggedElement, templateWidth);
 
             // ── Collect reference edges ─────────────────────────────────
             var refXEdges = new List<double>();   // vertical guides (X positions)
@@ -410,7 +410,7 @@ namespace BarTenderClone.Helpers
                 if (ReferenceEquals(element, draggedElement))
                     continue;
 
-                var bounds = DesignerInteractionHelper.GetVisualBounds(element);
+                var bounds = DesignerInteractionHelper.GetVisualBounds(element, templateWidth);
 
                 refXEdges.Add(bounds.Left);
                 refXEdges.Add(bounds.Left + bounds.Width / 2);  // centre X

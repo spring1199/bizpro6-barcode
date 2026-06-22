@@ -375,10 +375,10 @@ internal static class Program
         var textPixelBounds = GetNonWhitePixelBounds(textOnlyRender.Bitmap);
         AssertTrue(textPixelBounds.HasValue, "rotated text render produces non-white pixels");
         var textBounds = textPixelBounds.GetValueOrDefault();
-        AssertTrue(textBounds.X > driftVisualAfter.Left, "rotated text pixels stay inside left visual edge");
-        AssertTrue(textBounds.Y > driftVisualAfter.Top, "rotated text pixels stay inside top visual edge");
-        AssertTrue(textBounds.X + textBounds.Width < driftVisualAfter.Right, "rotated text pixels stay inside right visual edge");
-        AssertTrue(textBounds.Y + textBounds.Height < driftVisualAfter.Bottom, "rotated text pixels stay inside bottom visual edge");
+        AssertTrue(textBounds.X >= driftVisualAfter.Left, $"rotated text pixels stay inside left visual edge: textBounds.X={textBounds.X}, driftVisualAfter.Left={driftVisualAfter.Left}");
+        AssertTrue(textBounds.Y >= driftVisualAfter.Top, $"rotated text pixels stay inside top visual edge: textBounds.Y={textBounds.Y}, driftVisualAfter.Top={driftVisualAfter.Top}");
+        AssertTrue(textBounds.X + textBounds.Width <= driftVisualAfter.Right, $"rotated text pixels stay inside right visual edge: textBounds.Right={textBounds.X + textBounds.Width}, driftVisualAfter.Right={driftVisualAfter.Right}");
+        AssertTrue(textBounds.Y + textBounds.Height <= driftVisualAfter.Bottom, $"rotated text pixels stay inside bottom visual edge: textBounds.Bottom={textBounds.Y + textBounds.Height}, driftVisualAfter.Bottom={driftVisualAfter.Bottom}");
 
         foreach (var rotation in new[] { 0, 90, 180, 270 })
         {

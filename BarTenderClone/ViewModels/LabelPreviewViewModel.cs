@@ -419,8 +419,7 @@ namespace BarTenderClone.ViewModels
                 }
             };
 
-            // Auto-load data on initialization
-            _ = LoadDataAsync();
+            // Auto-load data on initialization has been disabled per user request
 
             // Subscribe to UndoRedoManager state changes for CanUndo/CanRedo binding
             _undoRedoManager.StateChanged += (_, _) =>
@@ -554,6 +553,7 @@ namespace BarTenderClone.ViewModels
             {
                 SelectedProducts.Add(item);
             }
+            IsMultiSelect = SelectedProducts.Count > 1;
 
             // Update select-all checkbox state
             UpdateSelectAllCheckboxState();
@@ -571,6 +571,7 @@ namespace BarTenderClone.ViewModels
             {
                 SelectedProducts.Add(item);
             }
+            IsMultiSelect = SelectedProducts.Count > 1;
 
             // Update IsAllSelected state based on CURRENT PAGE only
             UpdateSelectAllCheckboxState();
@@ -998,6 +999,7 @@ namespace BarTenderClone.ViewModels
             {
                 Type = ElementType.Text,
                 Content = priceText,
+                FieldName = "Price",
                 X = leftMargin,
                 Y = currentY,
                 FontSize = priceFontPx,
@@ -1022,7 +1024,8 @@ namespace BarTenderClone.ViewModels
                 Y = currentY,
                 Width = availableWidth,  // Full available width for centering calculation
                 Height = effectiveHeight,
-                IsCentered = true  // ZplGeneratorService will center within Width
+                IsCentered = true,
+                IsAutoWidth = true  // Fit selection box tightly around barcode content
             });
         }
 
@@ -1076,7 +1079,8 @@ namespace BarTenderClone.ViewModels
                 X = margins.left,
                 Y = Template.Height / 2,
                 Width = width,
-                Height = height
+                Height = height,
+                IsAutoWidth = true
             };
 
             Elements.Add(newBarcode);

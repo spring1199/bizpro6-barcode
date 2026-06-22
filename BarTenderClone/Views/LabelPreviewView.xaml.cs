@@ -175,16 +175,19 @@ namespace BarTenderClone.Views
                 thumb.Tag is string tag &&
                 Enum.TryParse<ResizeHandleDirection>(tag, out var handle))
             {
-                // Save undo state before resize begins
+                var templateWidth = 0.0;
+                var printerDpi = 203;
                 if (DataContext is LabelPreviewViewModel viewModel)
                 {
                     viewModel.SaveUndoState("Resize element");
                     DesignerInteractionHelper.ClampElementToTemplate(element, viewModel.Template);
+                    templateWidth = viewModel.Template.Width;
+                    printerDpi = viewModel.PrinterDpi;
                 }
 
-                DesignerInteractionHelper.CommitMeasuredLocalSize(element);
+                DesignerInteractionHelper.CommitMeasuredLocalSize(element, templateWidth);
 
-                var local = DesignerInteractionHelper.GetLocalSize(element);
+                var local = DesignerInteractionHelper.GetLocalSize(element, printerDpi, templateWidth);
                 _resizeDragState = new ResizeDragState(
                     element,
                     handle,

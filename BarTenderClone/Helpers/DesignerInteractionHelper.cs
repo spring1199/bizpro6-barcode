@@ -87,15 +87,24 @@ namespace BarTenderClone.Helpers
             }
         }
 
-        public static (double Width, double Height) GetLocalSize(LabelElement element)
+        public static (double Width, double Height) GetLocalSize(LabelElement element, int printerDpi = 203, double templateWidth = 0)
         {
-            return GetLocalSize(
+            var size = GetLocalSize(
                 element.Width,
                 element.Height,
                 element.Type,
                 element.FontSize,
                 element.Content,
-                element.RotationDegrees);
+                element.IsAutoWidth,
+                element.IsAutoHeight,
+                element.RotationDegrees,
+                printerDpi);
+
+            if (element.IsAutoWidth && templateWidth > 0 && size.Width > templateWidth)
+            {
+                size.Width = templateWidth;
+            }
+            return size;
         }
 
         public static (double Width, double Height) GetLocalSize(
@@ -106,40 +115,70 @@ namespace BarTenderClone.Helpers
             string? content,
             int rotationDegrees = 0)
         {
-            var localWidth = type == ElementType.Text && width <= 0
-                ? Math.Max(MeasureFullTextLineWidth(fontSize, content), MinElementWidth)
-                : Math.Max(width, MinElementWidth);
+            return GetLocalSize(
+                width,
+                height,
+                type,
+                fontSize,
+                content,
+                type == ElementType.Text && width <= 0,
+                type == ElementType.Text && height <= 0,
+                rotationDegrees);
+        }
 
-            var minimumDisplayHeight = height > 0
+        public static (double Width, double Height) GetLocalSize(
+            double width,
+            double height,
+            ElementType type,
+            double fontSize,
+            string? content,
+            bool isAutoWidth,
+            bool isAutoHeight,
+            int rotationDegrees = 0,
+            int printerDpi = 203,
+            double templateWidth = 0)
+        {
+            var localWidth = (type == ElementType.Text && (isAutoWidth || width <= 0))
+                ? Math.Max(MeasureFullTextLineWidth(fontSize, content), MinElementWidth)
+                : (type == ElementType.Barcode && (isAutoWidth || width <= 0))
+                    ? Math.Max(LabelSizeHelper.CalculateCode128Layout(content, 0, printerDpi).ActualWidthPixels, MinElementWidth)
+                    : Math.Max(width, MinElementWidth);
+
+            if (isAutoWidth && templateWidth > 0 && localWidth > templateWidth)
+            {
+                localWidth = templateWidth;
+            }
+
+            var minimumDisplayHeight = height > 0 && !isAutoHeight
                 ? MinElementHeight
                 : GetMinimumDisplayHeight(localWidth, type, fontSize, content);
 
-            var localHeight = height > 0
+            var localHeight = height > 0 && !isAutoHeight
                 ? Math.Max(height, minimumDisplayHeight)
                 : minimumDisplayHeight;
 
             return (localWidth, Math.Max(localHeight, MinElementHeight));
         }
 
-        public static Rect GetVisualBounds(LabelElement element)
+        public static Rect GetVisualBounds(LabelElement element, double templateWidth = 0)
         {
-            var (width, height) = GetLocalSize(element);
+            var (width, height) = GetLocalSize(element, 203, templateWidth);
             return GetVisualBounds(element.X, element.Y, width, height, element.RotationDegrees);
         }
 
-        public static void CommitMeasuredLocalSize(LabelElement element)
+        public static void CommitMeasuredLocalSize(LabelElement element, double templateWidth = 0)
         {
-            var local = GetLocalSize(element);
-            if (Math.Abs(element.Width - local.Width) > 0.01)
+            var local = GetLocalSize(element, 203, templateWidth);
+            if (!element.IsAutoWidth && Math.Abs(element.Width - local.Width) > 0.01)
                 element.Width = local.Width;
 
-            if (Math.Abs(element.Height - local.Height) > 0.01)
+            if (!element.IsAutoHeight && Math.Abs(element.Height - local.Height) > 0.01)
                 element.Height = local.Height;
         }
 
         public static void ClampElementToTemplate(LabelElement element, LabelTemplate template, double padding = SelectionChromePadding)
         {
-            var local = GetLocalSize(element);
+            var local = GetLocalSize(element, 203, template.Width);
             var bounds = GetVisualBounds(element.X, element.Y, local.Width, local.Height, element.RotationDegrees);
             var minLeft = Math.Min(padding, Math.Max(0, template.Width - bounds.Width));
             var minTop = Math.Min(padding, Math.Max(0, template.Height - bounds.Height));
@@ -374,7 +413,8 @@ namespace BarTenderClone.Helpers
 
         public static bool ShouldWrapText(int rotationDegrees)
         {
-            return true;
+            var rotation = LabelElement.NormalizeRotationDegrees(rotationDegrees);
+            return rotation != 90 && rotation != 270;
         }
 
         public static void MoveElement(
@@ -387,7 +427,7 @@ namespace BarTenderClone.Helpers
         {
             var x = element.X + deltaX;
             var y = element.Y + deltaY;
-            var local = GetLocalSize(element);
+            var local = GetLocalSize(element, printerDpi, template.Width);
             var visualBounds = GetVisualBounds(x, y, local.Width, local.Height, element.RotationDegrees);
 
             var snappedVisual = SnapPosition(visualBounds.Left, visualBounds.Top, visualBounds.Width, visualBounds.Height, template, zoom, printerDpi);
@@ -410,7 +450,7 @@ namespace BarTenderClone.Helpers
         {
             var x = startX + totalDeltaX;
             var y = startY + totalDeltaY;
-            var local = GetLocalSize(element);
+            var local = GetLocalSize(element, printerDpi, template.Width);
             var visualBounds = GetVisualBounds(x, y, local.Width, local.Height, element.RotationDegrees);
 
             var snappedVisual = SnapPosition(visualBounds.Left, visualBounds.Top, visualBounds.Width, visualBounds.Height, template, zoom, printerDpi);

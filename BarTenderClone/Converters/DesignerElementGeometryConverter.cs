@@ -22,30 +22,34 @@ namespace BarTenderClone.Converters
             var type = values[5] is ElementType elementType ? elementType : ElementType.Text;
             var fontSize = values[6] is double elementFontSize ? elementFontSize : 12;
             var content = values[7] as string ?? string.Empty;
-            double inverseZoom = 1.0;
-            bool isBold = false;
-            bool isCentered = false;
 
-            for (int i = 8; i < values.Length; i++)
+            bool isBold = values.Length > 8 && values[8] is bool b8 ? b8 : false;
+            bool isCentered = values.Length > 9 && values[9] is bool b9 ? b9 : false;
+            double templateWidth = values.Length > 10 && values[10] is double d10 ? d10 : 0;
+            bool isAutoWidth = values.Length > 11 && values[11] is bool b11 ? b11 : (type == ElementType.Text || width <= 0);
+            bool isAutoHeight = values.Length > 12 && values[12] is bool b12 ? b12 : (type == ElementType.Text || height <= 0);
+            
+            int printerDpi = 203;
+            if (values.Length > 13 && values[13] is int dpi13)
             {
-                if (values[i] is bool b)
-                {
-                    if (i == 8) isBold = b;
-                    else if (i == 9) isCentered = b;
-                }
-                else if (values[i] is double d)
-                {
-                    inverseZoom = d;
-                }
-                else if (values[i] is float f)
-                {
-                    inverseZoom = f;
-                }
+                printerDpi = dpi13;
+            }
+
+            double inverseZoom = 1.0;
+            if (values.Length > 14)
+            {
+                if (values[14] is double d14) inverseZoom = d14;
+                else if (values[14] is float f14) inverseZoom = f14;
             }
 
             var metric = parameter?.ToString() ?? string.Empty;
 
-            var local = DesignerInteractionHelper.GetLocalSize(width, height, type, fontSize, content, rotation);
+            var local = DesignerInteractionHelper.GetLocalSize(width, height, type, fontSize, content, isAutoWidth, isAutoHeight, rotation, printerDpi, templateWidth);
+            if (isAutoWidth && templateWidth > 0 && local.Width > templateWidth)
+            {
+                local.Width = templateWidth;
+            }
+            var visualBounds = DesignerInteractionHelper.GetVisualBounds(x, y, local.Width, local.Height, rotation);
             const double handleSize = 8;
             const double rotateMarkerSize = 10;
             const double rotateMarkerOffset = 28;
@@ -63,9 +67,13 @@ namespace BarTenderClone.Converters
                     type,
                     fontSize,
                     content,
+                    isAutoWidth,
+                    isAutoHeight,
+                    printerDpi,
                     handleSize,
                     rotateMarkerSize,
                     rotateMarkerOffset * inverseZoom,
+                    templateWidth,
                     out var chromeValue))
             {
                 return chromeValue;
@@ -73,10 +81,12 @@ namespace BarTenderClone.Converters
 
             return metric switch
             {
-                "VisualLeft" => DesignerInteractionHelper.GetVisualLeft(x, y, width, height, rotation, type, fontSize, content),
-                "VisualTop" => DesignerInteractionHelper.GetVisualTop(x, y, width, height, rotation, type, fontSize, content),
-                "VisualWidth" => DesignerInteractionHelper.GetVisualWidth(width, height, rotation, type, fontSize, content),
-                "VisualHeight" => DesignerInteractionHelper.GetVisualHeight(width, height, rotation, type, fontSize, content),
+                "VisualLeft" => isCentered && templateWidth > 0
+                    ? (templateWidth - visualBounds.Width) / 2
+                    : visualBounds.Left,
+                "VisualTop" => visualBounds.Top,
+                "VisualWidth" => visualBounds.Width,
+                "VisualHeight" => visualBounds.Height,
                 "LocalWidth" => local.Width,
                 "LocalHeight" => local.Height,
                 "TextFitFontSize" => DesignerInteractionHelper.MeasureTextLayout(
@@ -110,9 +120,13 @@ namespace BarTenderClone.Converters
             ElementType type,
             double fontSize,
             string content,
+            bool isAutoWidth,
+            bool isAutoHeight,
+            int printerDpi,
             double handleSize,
             double rotateMarkerSize,
             double rotateMarkerOffset,
+            double templateWidth,
             out double value)
         {
             value = 0;
@@ -121,18 +135,15 @@ namespace BarTenderClone.Converters
             if (parts.Length != 2)
                 return false;
 
-            var local = DesignerInteractionHelper.GetLocalSize(width, height, type, fontSize, content, rotation);
+            var local = DesignerInteractionHelper.GetLocalSize(width, height, type, fontSize, content, isAutoWidth, isAutoHeight, rotation, printerDpi, templateWidth);
+            var bounds = DesignerInteractionHelper.GetVisualBounds(0, 0, local.Width, local.Height, rotation);
 
             if (parts[0].Equals("RotateMarker", StringComparison.OrdinalIgnoreCase))
             {
-                var marker = DesignerInteractionHelper.GetRotateMarkerPoint(
-                    width,
-                    height,
-                    rotation,
-                    type,
-                    fontSize,
-                    content,
-                    rotateMarkerOffset);
+                var localPoint = new Vector(0, -local.Height / 2);
+                var localOutward = new Vector(0, -Math.Max(0, rotateMarkerOffset));
+                var rotatedPoint = DesignerInteractionHelper.RotateVector(localPoint + localOutward, rotation);
+                var marker = new Point(bounds.Width / 2 + rotatedPoint.X, bounds.Height / 2 + rotatedPoint.Y);
 
                 value = parts[1].Equals("Left", StringComparison.OrdinalIgnoreCase)
                     ? marker.X - rotateMarkerSize / 2
@@ -143,23 +154,14 @@ namespace BarTenderClone.Converters
 
             if (parts[0].Equals("RotateLine", StringComparison.OrdinalIgnoreCase))
             {
-                var topCenter = DesignerInteractionHelper.GetChromePoint(
-                    width,
-                    height,
-                    rotation,
-                    type,
-                    fontSize,
-                    content,
-                    ResizeHandleDirection.Top);
+                var localTopCenter = new Vector(0, -local.Height / 2);
+                var rotatedTopCenter = DesignerInteractionHelper.RotateVector(localTopCenter, rotation);
+                var topCenter = new Point(bounds.Width / 2 + rotatedTopCenter.X, bounds.Height / 2 + rotatedTopCenter.Y);
 
-                var marker = DesignerInteractionHelper.GetRotateMarkerPoint(
-                    width,
-                    height,
-                    rotation,
-                    type,
-                    fontSize,
-                    content,
-                    rotateMarkerOffset);
+                var localPoint = new Vector(0, -local.Height / 2);
+                var localOutward = new Vector(0, -Math.Max(0, rotateMarkerOffset));
+                var rotatedPoint = DesignerInteractionHelper.RotateVector(localPoint + localOutward, rotation);
+                var marker = new Point(bounds.Width / 2 + rotatedPoint.X, bounds.Height / 2 + rotatedPoint.Y);
 
                 if (parts[1].Equals("X1", StringComparison.OrdinalIgnoreCase))
                 {
@@ -193,14 +195,11 @@ namespace BarTenderClone.Converters
                 return false;
             }
 
-            var point = DesignerInteractionHelper.GetChromePoint(
-                width,
-                height,
-                rotation,
-                type,
-                fontSize,
-                content,
-                handle);
+            var localHandleOffset = new Vector(
+                GetHandleX(handle) * local.Width / 2,
+                GetHandleY(handle) * local.Height / 2);
+            var rotatedHandleOffset = DesignerInteractionHelper.RotateVector(localHandleOffset, rotation);
+            var point = new Point(bounds.Width / 2 + rotatedHandleOffset.X, bounds.Height / 2 + rotatedHandleOffset.Y);
 
             value = parts[1].Equals("Left", StringComparison.OrdinalIgnoreCase)
                 ? point.X - handleSize / 2
