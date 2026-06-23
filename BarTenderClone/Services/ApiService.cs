@@ -158,29 +158,48 @@ namespace BarTenderClone.Services
                 var json = JsonConvert.SerializeObject(payload);
                 _logger.LogInfo($"UpdatePrintStatus request: rfid={rfid}, isPrint={payload.IsPrint}");
 
-                foreach (var baseUrl in GetCandidateBaseUrls())
+                // Retry the whole status push a few times: a transient network blip or 5xx must not
+                // leave the item permanently out of sync with the website. Each attempt walks every
+                // candidate base URL; a per-request try/catch isolates one bad URL from the rest, and
+                // a short backoff separates attempts. The success path returns on the first OK, so a
+                // healthy server adds no extra delay.
+                const int maxAttempts = 3;
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
                 {
-                    using var content = new StringContent(json, Encoding.UTF8, "application/json");
-                    var request = new HttpRequestMessage(
-                        HttpMethod.Post,
-                        BuildUri(baseUrl, "/api/services/app/Resource/UpdatePrintStatus"));
-                    request.Content = content;
-                    AddAuthorizationHeaders(request);
-
-                    var response = await _httpClient.SendAsync(request);
-                    var responseBody = await response.Content.ReadAsStringAsync();
-
-                    // Always persist the exact request/response so print-status failures are diagnosable in the field.
-                    await WriteApiTraceAsync(baseUrl, json, $"HTTP {(int)response.StatusCode} {response.StatusCode}\n{responseBody}");
-
-                    if (response.IsSuccessStatusCode && IsSuccessfulUpdatePrintStatusResponse(responseBody))
+                    foreach (var baseUrl in GetCandidateBaseUrls())
                     {
-                        _sessionService.ApiBaseUrl = NormalizeBaseUrl(baseUrl);
-                        _logger.LogInfo($"UpdatePrintStatus OK ({baseUrl}) for rfid={rfid}, isPrint={payload.IsPrint}");
-                        return true;
+                        try
+                        {
+                            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                            var request = new HttpRequestMessage(
+                                HttpMethod.Post,
+                                BuildUri(baseUrl, "/api/services/app/Resource/UpdatePrintStatus"));
+                            request.Content = content;
+                            AddAuthorizationHeaders(request);
+
+                            var response = await _httpClient.SendAsync(request);
+                            var responseBody = await response.Content.ReadAsStringAsync();
+
+                            // Always persist the exact request/response so print-status failures are diagnosable in the field.
+                            await WriteApiTraceAsync(baseUrl, json, $"HTTP {(int)response.StatusCode} {response.StatusCode}\n{responseBody}");
+
+                            if (response.IsSuccessStatusCode && IsSuccessfulUpdatePrintStatusResponse(responseBody))
+                            {
+                                _sessionService.ApiBaseUrl = NormalizeBaseUrl(baseUrl);
+                                _logger.LogInfo($"UpdatePrintStatus OK ({baseUrl}) for rfid={rfid}, isPrint={payload.IsPrint} (attempt {attempt}/{maxAttempts})");
+                                return true;
+                            }
+
+                            _logger.LogWarning($"UpdatePrintStatus failed ({baseUrl}) rfid={rfid} attempt {attempt}/{maxAttempts}: HTTP {(int)response.StatusCode}; body={Truncate(responseBody, 500)}");
+                        }
+                        catch (Exception requestEx)
+                        {
+                            _logger.LogWarning($"UpdatePrintStatus attempt {attempt}/{maxAttempts} to {baseUrl} threw: {requestEx.Message}");
+                        }
                     }
 
-                    _logger.LogWarning($"UpdatePrintStatus failed ({baseUrl}) rfid={rfid}: HTTP {(int)response.StatusCode}; body={Truncate(responseBody, 500)}");
+                    if (attempt < maxAttempts)
+                        await Task.Delay(300 * attempt);
                 }
             }
             catch (Exception ex)

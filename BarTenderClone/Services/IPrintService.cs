@@ -1,4 +1,5 @@
 using BarTenderClone.Models;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -54,7 +55,8 @@ namespace BarTenderClone.Services
             RfidConfiguration rfidConfig,
             int quantityPerItem = 1,
             PrintOptions? options = null,
-            PrinterConfiguration? config = null);
+            PrinterConfiguration? config = null,
+            IProgress<PrintProgressInfo>? progress = null);
 
         /// <summary>
         /// Legacy method: Prints a label with hardcoded ZPL template.

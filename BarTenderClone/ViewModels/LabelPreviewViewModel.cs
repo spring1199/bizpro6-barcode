@@ -112,8 +112,19 @@ namespace BarTenderClone.ViewModels
         [ObservableProperty]
         private bool _isAllSelected = false;
 
+        // True only while UpdateSelectAllCheckboxState is programmatically syncing IsAllSelected to
+        // reflect the current page's per-item state. In that case OnIsAllSelectedChanged must NOT
+        // cascade the value back onto every item — otherwise un-checking a single row flips
+        // IsAllSelected true->false, which would then wipe the whole selection (feedback loop).
+        private bool _isSyncingSelectAll;
+
         partial void OnIsAllSelectedChanged(bool value)
         {
+            // Ignore programmatic, state-reflecting changes; only react to a genuine user toggle
+            // of a header "select all" control.
+            if (_isSyncingSelectAll)
+                return;
+
             foreach (var product in Products)
             {
                 product.IsSelected = value;
@@ -198,6 +209,8 @@ namespace BarTenderClone.ViewModels
 
         [ObservableProperty]
         private bool _isLoadingData = false;
+
+        partial void OnIsLoadingDataChanged(bool value) => OnPropertyChanged(nameof(IsOverlayVisible));
 
         [ObservableProperty]
         private bool _isFilterExpanded = false; // Collapsed by default
@@ -295,6 +308,26 @@ namespace BarTenderClone.ViewModels
 
         [ObservableProperty]
         private bool _isPrinting = false;
+
+        partial void OnIsPrintingChanged(bool value) => OnPropertyChanged(nameof(IsOverlayVisible));
+
+        // ===== BUSY / PROGRESS OVERLAY =====
+
+        /// <summary>True whenever a blocking, full-window busy overlay should be shown — either
+        /// data is loading (Fetch Data) or a print job is running.</summary>
+        public bool IsOverlayVisible => IsLoadingData || IsPrinting;
+
+        /// <summary>Number of items printed so far in the current batch (drives the progress bar value).</summary>
+        [ObservableProperty]
+        private int _printProgressCurrent;
+
+        /// <summary>Total items in the current print batch (drives the progress bar maximum).</summary>
+        [ObservableProperty]
+        private int _printProgressTotal;
+
+        /// <summary>Human-readable progress line shown on the print overlay, e.g. "Хэвлэж байна: 12 / 50".</summary>
+        [ObservableProperty]
+        private string _printProgressText = string.Empty;
 
         // Media Type selection
         [ObservableProperty]
@@ -580,14 +613,16 @@ namespace BarTenderClone.ViewModels
 
         private void UpdateSelectAllCheckboxState()
         {
-            if (Products.Count == 0)
+            // Reflect the current page's state into IsAllSelected WITHOUT triggering the cascade
+            // in OnIsAllSelectedChanged (see _isSyncingSelectAll).
+            _isSyncingSelectAll = true;
+            try
             {
-                IsAllSelected = false;
+                IsAllSelected = Products.Count > 0 && Products.All(p => p.IsSelected);
             }
-            else
+            finally
             {
-                // Check if all items on current page are selected
-                IsAllSelected = Products.All(p => p.IsSelected);
+                _isSyncingSelectAll = false;
             }
         }
 
@@ -1498,6 +1533,11 @@ namespace BarTenderClone.ViewModels
                 FilteredProducts.Add(item);
             }
 
+            // A filter/search change can shrink the result set below the page you were on
+            // (e.g. you were on page 6 and the filter now yields only 2 pages). Jump back to the
+            // first page so results appear immediately instead of a blank, out-of-range page.
+            Pagination.CurrentPage = 1;
+
             // Update pagination total
             Pagination.TotalItems = FilteredProducts.Count;
 
@@ -1541,6 +1581,11 @@ namespace BarTenderClone.ViewModels
         {
             QuickSearchText = string.Empty;
             FilterCriteria.ClearAll();
+            // The RFID lifecycle status (Төлөв) is a separate server-side fetch filter, not part
+            // of FilterCriteria, so ClearAll() above doesn't touch it. Reset it back to "Бүгд"
+            // (the first option) so "Clear All" actually clears every filter the user sees.
+            if (RfidStatusFilterOptions.Count > 0)
+                SelectedRfidStatusFilter = RfidStatusFilterOptions[0];
             StatusMessage = "Filters cleared";
         }
 
@@ -2115,6 +2160,14 @@ namespace BarTenderClone.ViewModels
                     }
                 }
 
+                // Seed a sane single-item progress so the overlay isn't blank for the
+                // single-print path (the batch path overwrites these with live counts).
+                int plannedItems = Math.Max(1, SelectedProducts.Count);
+                PrintProgressTotal = plannedItems;
+                PrintProgressCurrent = 0;
+                PrintProgressText = string.Format(
+                    GetResourceString("StatusPrintingProgress", "Хэвлэж байна: {0} / {1}"), 0, plannedItems);
+
                 IsPrinting = true;
 
                 if (SelectedProducts.Count <= 1)
@@ -2227,6 +2280,11 @@ namespace BarTenderClone.ViewModels
                 printOptions,
                 printerConfig
             );
+
+            // Print outcome — kept as a permanent field-support breadcrumb (pairs with the
+            // backend UpdatePrintStatus rowsAffected log) so a "status didn't sync" report can be
+            // traced end to end.
+            _logger.LogInfo($"[PrintSync] PrintResult Success={result.Success} ErrorType={result.ErrorType} rfid={(SelectedProduct?.Rfid ?? "null")}");
 
             // Save to Print History
             var historyEntry = new BarTenderClone.Models.PrintHistoryEntry
@@ -2343,6 +2401,11 @@ namespace BarTenderClone.ViewModels
                         SelectedProduct.PrintErrorMessage = null;
 
                         statusSynced = await SyncPrintStatusAsync(SelectedProduct, true, DateTime.Now);
+                        _logger.LogInfo($"[PrintSync] Auto-sync after print (legacy): rfid={SelectedProduct.Rfid}, synced={statusSynced}");
+                    }
+                    else
+                    {
+                        _logger.LogInfo("[PrintSync] Auto-sync skipped: SelectedProduct is null in legacy success branch.");
                     }
 
                     StatusMessage = $"Successfully printed {Quantity} label(s)!";
@@ -2445,6 +2508,23 @@ namespace BarTenderClone.ViewModels
 
             var printerConfig = CreatePrinterConfiguration();
 
+            // Seed the progress overlay so it shows the right denominator the instant printing
+            // begins. Progress<T> marshals each callback back onto the UI thread that created it,
+            // so updating bound properties here is safe even though printing runs on a worker.
+            PrintProgressTotal = totalItems;
+            PrintProgressCurrent = 0;
+            PrintProgressText = string.Format(
+                GetResourceString("StatusPrintingProgress", "Хэвлэж байна: {0} / {1}"), 0, totalItems);
+
+            var printProgress = new Progress<PrintProgressInfo>(info =>
+            {
+                PrintProgressTotal = info.Total;
+                PrintProgressCurrent = info.Completed;
+                PrintProgressText = string.Format(
+                    GetResourceString("StatusPrintingProgress", "Хэвлэж байна: {0} / {1}"),
+                    info.Completed, info.Total);
+            });
+
             var batchResult = await _printService.PrintBatchWithRfidAsync(
                 Elements,
                 SelectedProducts,
@@ -2453,7 +2533,8 @@ namespace BarTenderClone.ViewModels
                 rfidConfig,
                 Quantity,
                 printOptions,
-                printerConfig
+                printerConfig,
+                printProgress
             );
 
             // Save to Print History

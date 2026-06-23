@@ -256,7 +256,11 @@ namespace BarTenderClone.Models
                 "NONE" => null,
                 "RFID" => EmptyToNull(Rfid),
                 "ITEMCODE" => EmptyToNull(Code),
-                "PRODUCTNAME" => EmptyToNull(ProductName),
+                // Use the raw parsed name, NOT the "Unknown"-wrapped ProductName property.
+                // ProductName falls back to the literal "Unknown" for UI display, but that
+                // non-empty sentinel must never leak into the label/print value pipeline
+                // (it would defeat EmptyToNull and the resolver's blank/placeholder fallback).
+                "PRODUCTNAME" => EmptyToNull(ParsedDocument?.Product?.Name),
                 "PRICE" => $"MNT {Price:N0}",
                 "BRANCH" => EmptyToNull(Branch),
                 "STATUS" => EmptyToNull(Status),

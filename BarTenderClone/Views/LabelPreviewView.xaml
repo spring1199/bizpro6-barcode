@@ -754,13 +754,28 @@
                                     <ItemsControl ItemsSource="{Binding Elements}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas Background="Transparent" ClipToBounds="True"
+                                            <!-- ClipToBounds is intentionally FALSE so the selection chrome
+                                                 (8 resize handles + rotate marker) is never clipped at the
+                                                 label edge. For a full-width element the right/bottom handles
+                                                 sit on the card boundary; clipping turned them into an
+                                                 ungrabbable 4px sliver. The surrounding canvas Border has a
+                                                 20px gutter + scroll area, so handles render fully there. -->
+                                            <Canvas Background="Transparent" ClipToBounds="False"
                                                     RenderOptions.BitmapScalingMode="HighQuality"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
 
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
+                                            <!-- Now that the canvas no longer clips, lift the SELECTED element
+                                                 (and therefore its chrome/handles) above every other element so
+                                                 the handles are never hidden behind a neighbouring element's
+                                                 content. Unselected elements keep the default z-order. -->
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="Panel.ZIndex" Value="1000"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
                                             <Setter Property="Canvas.Left">
                                                 <Setter.Value>
                                                     <MultiBinding Converter="{StaticResource DesignerElementGeometryConverter}" ConverterParameter="VisualLeft">
@@ -1250,8 +1265,9 @@
                                       ItemsSource="{Binding DataContext.AvailableFields, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                       DisplayMemberPath="DisplayName"
                                       SelectedValuePath="Key"
-                                      SelectedValue="{Binding FieldName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValue="{Binding FieldName, Mode=OneWay}"
                                       SelectionChanged="FieldBindingComboBox_SelectionChanged"
+                                      Loaded="FieldBindingComboBox_Loaded"
                                       Style="{StaticResource ModernComboBoxStyle}" Margin="0,0,0,8"/>
 
                             <!-- Font Size (Text) / Dimensions (Barcode) -->
@@ -1598,5 +1614,50 @@
                 </Grid>
             </Border>
         </Popup>
+
+        <!-- ========================================
+             BUSY / PROGRESS OVERLAY
+             Covers the whole control (both rows) and blocks input while data is
+             loading (Fetch Data) or a print batch is running. The opaque-ish Border
+             swallows mouse clicks so the UI underneath cannot be touched mid-operation.
+             ======================================== -->
+        <Border Grid.Row="0" Grid.RowSpan="2"
+                Background="#99000000"
+                Visibility="{Binding IsOverlayVisible, Converter={StaticResource BoolToVisConverter}}"
+                Panel.ZIndex="1000">
+            <Border Background="{DynamicResource SurfaceBrush}"
+                    CornerRadius="12"
+                    Padding="36,28"
+                    MinWidth="320"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" Opacity="0.25" BlurRadius="24" ShadowDepth="0"/>
+                </Border.Effect>
+                <StackPanel HorizontalAlignment="Center">
+
+                    <!-- LOADING state (Fetch Data): indeterminate ring -->
+                    <StackPanel HorizontalAlignment="Center"
+                                Visibility="{Binding IsLoadingData, Converter={StaticResource BoolToVisConverter}}">
+                        <ui:ProgressRing IsActive="{Binding IsLoadingData}" Width="56" Height="56"/>
+                        <TextBlock Text="{DynamicResource StatusLoading}"
+                                   Style="{StaticResource BodyTextStyle}"
+                                   HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                    </StackPanel>
+
+                    <!-- PRINTING state: determinate "X / Y" progress bar -->
+                    <StackPanel HorizontalAlignment="Center" MinWidth="280"
+                                Visibility="{Binding IsPrinting, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding PrintProgressText}"
+                                   Style="{StaticResource SubsectionStyle}"
+                                   HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                        <ProgressBar Minimum="0"
+                                     Maximum="{Binding PrintProgressTotal}"
+                                     Value="{Binding PrintProgressCurrent}"
+                                     Height="8" Width="280"/>
+                    </StackPanel>
+
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </UserControl>

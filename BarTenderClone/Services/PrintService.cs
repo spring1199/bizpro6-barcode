@@ -641,24 +641,41 @@ namespace BarTenderClone.Services
             RfidConfiguration rfidConfig,
             int quantityPerItem = 1,
             PrintOptions? options = null,
-            PrinterConfiguration? config = null)
+            PrinterConfiguration? config = null,
+            IProgress<PrintProgressInfo>? progress = null)
         {
             options ??= new PrintOptions();
             config ??= GetDefaultPrinterConfiguration();
 
+            // Materialize once so Count() and the foreach below see a stable list and the
+            // progress Total matches what we actually iterate.
+            var items = dataSources as IList<ResourceItem> ?? dataSources.ToList();
+
             var batchResult = new BatchPrintResult
             {
                 StartTime = DateTime.Now,
-                TotalItems = dataSources.Count()
+                TotalItems = items.Count
             };
+
+            // Report the initial 0/Total so the overlay shows the correct denominator immediately.
+            progress?.Report(new PrintProgressInfo { Completed = 0, Total = batchResult.TotalItems });
 
             try
             {
                 _logger.LogInfo($"Starting batch print: {batchResult.TotalItems} items, Quantity={quantityPerItem}, RFID={rfidConfig.EnableRfidEncoding}, DetailedTracking={options.EnableDetailedTracking}");
 
                 // Process each item sequentially
-                foreach (var dataSource in dataSources)
+                foreach (var dataSource in items)
                 {
+                    // Announce the item we are about to print BEFORE it starts, so the overlay
+                    // shows the in-flight item name while the (possibly slow) print runs.
+                    progress?.Report(new PrintProgressInfo
+                    {
+                        Completed = batchResult.SuccessCount + batchResult.FailureCount,
+                        Total = batchResult.TotalItems,
+                        CurrentItemName = dataSource.ProductName
+                    });
+
                     var itemResult = new ItemPrintResult
                     {
                         Item = dataSource,
@@ -707,6 +724,14 @@ namespace BarTenderClone.Services
 
                         _logger.LogWarning($"Batch item failed but continuing (StopOnFirstFailure=false). {batchResult.FailureCount} failed so far.");
                     }
+
+                    // Item finished (success or failure): advance the completed count.
+                    progress?.Report(new PrintProgressInfo
+                    {
+                        Completed = batchResult.SuccessCount + batchResult.FailureCount,
+                        Total = batchResult.TotalItems,
+                        CurrentItemName = dataSource.ProductName
+                    });
 
                     // Small delay between items to avoid overwhelming printer
                     if (rfidConfig.EnableRfidEncoding && options.DelayBetweenLabelsMs > 0)

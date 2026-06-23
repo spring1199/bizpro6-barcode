@@ -180,37 +180,18 @@ namespace BarTenderClone.Helpers
         {
             var local = GetLocalSize(element, 203, template.Width);
             var bounds = GetVisualBounds(element.X, element.Y, local.Width, local.Height, element.RotationDegrees);
-            var minLeft = Math.Min(padding, Math.Max(0, template.Width - bounds.Width));
-            var minTop = Math.Min(padding, Math.Max(0, template.Height - bounds.Height));
-            var maxRight = Math.Max(minLeft, template.Width - padding);
-            var maxBottom = Math.Max(minTop, template.Height - padding);
 
-            var deltaX = 0.0;
-            var deltaY = 0.0;
+            // Use the SAME allowed range as drag-move (ClampPosition) so selecting/rotating an
+            // element never snaps it to a different spot than dragging permits. The previous
+            // implementation force-CENTERED any element wider than the label on every mouse-down,
+            // which discarded the user's horizontal positioning and made wide barcodes feel
+            // un-movable. Now an oversized element is only nudged if it has drifted outside the
+            // legal sliding range; otherwise it stays exactly where the user left it.
+            var (minLeft, maxLeft) = ClampRange(bounds.Width, template.Width, MinElementWidth);
+            var (minTop, maxTop) = ClampRange(bounds.Height, template.Height, MinElementHeight);
 
-            if (bounds.Width + padding * 2 <= template.Width)
-            {
-                if (bounds.Left < minLeft)
-                    deltaX = minLeft - bounds.Left;
-                else if (bounds.Right > maxRight)
-                    deltaX = maxRight - bounds.Right;
-            }
-            else
-            {
-                deltaX = (template.Width - bounds.Width) / 2 - bounds.Left;
-            }
-
-            if (bounds.Height + padding * 2 <= template.Height)
-            {
-                if (bounds.Top < minTop)
-                    deltaY = minTop - bounds.Top;
-                else if (bounds.Bottom > maxBottom)
-                    deltaY = maxBottom - bounds.Bottom;
-            }
-            else
-            {
-                deltaY = (template.Height - bounds.Height) / 2 - bounds.Top;
-            }
+            var deltaX = Math.Clamp(bounds.Left, minLeft, maxLeft) - bounds.Left;
+            var deltaY = Math.Clamp(bounds.Top, minTop, maxTop) - bounds.Top;
 
             if (Math.Abs(deltaX) > 0.01)
                 element.X += deltaX;
@@ -735,14 +716,31 @@ namespace BarTenderClone.Helpers
 
         private static Rect ClampPosition(Rect rect, LabelTemplate template)
         {
-            var maxX = Math.Max(0, template.Width - rect.Width);
-            var maxY = Math.Max(0, template.Height - rect.Height);
+            var (minX, maxX) = ClampRange(rect.Width, template.Width, MinElementWidth);
+            var (minY, maxY) = ClampRange(rect.Height, template.Height, MinElementHeight);
 
             return new Rect(
-                Math.Clamp(rect.X, 0, maxX),
-                Math.Clamp(rect.Y, 0, maxY),
+                Math.Clamp(rect.X, minX, maxX),
+                Math.Clamp(rect.Y, minY, maxY),
                 rect.Width,
                 rect.Height);
+        }
+
+        // Allowed top-left range for one axis.
+        //   * Element strictly NARROWER than the label  -> travel 0..(bound-size), fully inside.
+        //   * Element as wide as / WIDER than the label  -> it cannot sit fully inside, so keep at
+        //     least `minVisible` px on-label and let it slide across BOTH edges. This yields a
+        //     non-empty span instead of the old [0,0] range that pinned a full-width barcode
+        //     horizontally (it could then only move vertically). Auto-width barcodes get clamped
+        //     to EXACTLY the label width, so the boundary case (size == bound) must take this
+        //     branch too — hence the strict `<`.
+        private static (double min, double max) ClampRange(double size, double bound, double minVisible)
+        {
+            if (size < bound)
+                return (0, bound - size);
+
+            var keep = Math.Min(bound, Math.Max(minVisible, 1));
+            return (keep - size, bound - keep);
         }
 
         private static Rect ClampResize(Rect rect, int handleX, int handleY, LabelTemplate template, int rotationDegrees)

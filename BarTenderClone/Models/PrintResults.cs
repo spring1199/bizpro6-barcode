@@ -5,6 +5,19 @@ using System.Linq;
 namespace BarTenderClone.Models
 {
     /// <summary>
+    /// Progress snapshot reported by a batch print operation so the UI can render a
+    /// determinate "X / Y" progress overlay. <see cref="Completed"/> counts items that
+    /// have finished printing (succeeded or failed); <see cref="Total"/> is the number of
+    /// items in the batch; <see cref="CurrentItemName"/> is the item being printed now.
+    /// </summary>
+    public class PrintProgressInfo
+    {
+        public int Completed { get; set; }
+        public int Total { get; set; }
+        public string? CurrentItemName { get; set; }
+    }
+
+    /// <summary>
     /// Represents the result of a print operation
     /// </summary>
     public class PrintResult

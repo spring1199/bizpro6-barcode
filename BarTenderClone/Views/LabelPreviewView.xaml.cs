@@ -73,6 +73,11 @@ namespace BarTenderClone.Views
         private double _accumulatedDragX;
         private double _accumulatedDragY;
 
+        // Horizontal drag distance (in LabelCard pixels) past which a centered element releases
+        // its auto-centering so it can be positioned manually. Small enough to feel responsive,
+        // large enough not to trip on the jitter of a vertical-only drag.
+        private const double HorizontalUncenterThresholdPixels = 4.0;
+
         private void Thumb_DragStarted(object sender, DragStartedEventArgs e)
         {
             if (sender is Thumb thumb &&
@@ -100,6 +105,24 @@ namespace BarTenderClone.Views
 
                 Point currentMouse = Mouse.GetPosition(LabelCard);
                 Vector cumulativeDelta = currentMouse - _dragStartMouse;
+
+                // An element with IsCentered=true is force-centered horizontally by the designer
+                // (DesignerElementGeometryConverter.VisualLeft ignores X entirely), so dragging it
+                // sideways changes element.X but never moves it on screen. The moment the user
+                // drags horizontally by a meaningful amount, release auto-centering so the manual
+                // X position takes effect. Re-anchor the drag origin to the element's CURRENT
+                // position (centered X, already-moved Y) so it continues smoothly without jumping.
+                if (element.IsCentered &&
+                    Math.Abs(cumulativeDelta.X) > HorizontalUncenterThresholdPixels)
+                {
+                    var localSize = DesignerInteractionHelper.GetLocalSize(
+                        element, viewModel.PrinterDpi, viewModel.Template.Width);
+                    element.IsCentered = false;
+                    _dragStartX = (viewModel.Template.Width - localSize.Width) / 2;
+                    _dragStartY = element.Y;
+                    _dragStartMouse = currentMouse;
+                    cumulativeDelta = new Vector(0, 0);
+                }
 
                 DesignerInteractionHelper.MoveElementAbsolute(
                     element,
@@ -803,7 +826,12 @@ namespace BarTenderClone.Views
             if (sender is not ComboBox comboBox)
                 return;
 
-            // SelectedValue is the Key string (via SelectedValuePath="Key")
+            // SelectedValue is the Key string (via SelectedValuePath="Key").
+            // The binding is OneWay (FieldName -> ComboBox) so the control never writes FieldName
+            // itself. WPF raises a spurious empty selection while the ComboBox is (re)loading and
+            // its ItemsSource isn't populated yet — ignoring it here is what stops a tab switch
+            // from wiping the element's field binding (and its content -> "[None]"). A genuine
+            // "None" choice has Key="None" (non-empty) and still flows through normally.
             var fieldName = comboBox.SelectedValue as string;
             if (string.IsNullOrEmpty(fieldName))
                 return;
@@ -811,8 +839,24 @@ namespace BarTenderClone.Views
             if (DataContext is not BarTenderClone.ViewModels.LabelPreviewViewModel viewModel || viewModel.SelectedElement == null)
                 return;
 
-            // FieldName already updated by TwoWay SelectedValue binding; trigger content refresh
+            // OneWay binding doesn't write back, so apply the user's selection explicitly.
+            if (!string.Equals(viewModel.SelectedElement.FieldName, fieldName, StringComparison.Ordinal))
+                viewModel.SelectedElement.FieldName = fieldName;
+
             viewModel.UpdateElementContentFromFieldPublic(viewModel.SelectedElement);
+        }
+
+        private void FieldBindingComboBox_Loaded(object sender, RoutedEventArgs e)
+        {
+            // After a view reload the ItemsSource can populate after the SelectedValue binding was
+            // first evaluated. Re-assert the dropdown selection from the element's preserved
+            // FieldName so it shows the right field instead of appearing blank.
+            if (sender is ComboBox comboBox &&
+                comboBox.DataContext is LabelElement element &&
+                !string.IsNullOrEmpty(element.FieldName))
+            {
+                comboBox.SelectedValue = element.FieldName;
+            }
         }
 
         private void ColumnToggleMenu_Opened(object sender, RoutedEventArgs e)

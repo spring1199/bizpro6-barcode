@@ -308,6 +308,12 @@ namespace BarTenderClone.Models
 
         partial void OnTotalItemsChanged(int value)
         {
+            // Safety net: if the result set shrank below the current page, the page would render
+            // blank. Clamp into the valid range so a stale page index can never strand the user
+            // on an empty page (regardless of how TotalItems changed).
+            if (CurrentPage > TotalPages)
+                CurrentPage = TotalPages;
+
             OnPropertyChanged(nameof(TotalPages));
             OnPropertyChanged(nameof(HasPreviousPage));
             OnPropertyChanged(nameof(HasNextPage));

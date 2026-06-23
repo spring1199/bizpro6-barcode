@@ -19,7 +19,10 @@ namespace BarTenderClone.Helpers
                 return fallback;
             }
 
-            return ResolveVisualValue(element.FieldName, dataSource, fallback);
+            // Data-bound element: render the live field value. When the record has no value
+            // for this field, render BLANK rather than leaking the design-time placeholder
+            // (e.g. "{ProductName}") or the cached element content onto the printed label.
+            return ResolveVisualValue(element.FieldName, dataSource, string.Empty);
         }
 
         public static string ResolveVisualValue(string fieldName, ResourceItem dataSource, string fallback = "")
