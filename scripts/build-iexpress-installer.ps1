@@ -52,7 +52,9 @@ if (Test-Path $InstallerDir) {
 New-Item -ItemType Directory -Path $InstallerDir -Force | Out-Null
 
 Write-Host "[Installer] Compiling with Inno Setup..." -ForegroundColor Yellow
-$versionDefine = "/DMyAppVersion=`"$Version`""
+# No embedded quotes around $Version: ISCC treats "/DX=`"v`"" literally, baking quote
+# characters into the preprocessor string and producing an invalid OutputBaseFilename.
+$versionDefine = "/DMyAppVersion=$Version"
 & $iscc `
     $versionDefine `
     "/O$InstallerDir" `
