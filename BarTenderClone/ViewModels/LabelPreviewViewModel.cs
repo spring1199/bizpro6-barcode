@@ -2213,10 +2213,93 @@ namespace BarTenderClone.ViewModels
             {
                 return await _apiService.UpdatePrintStatusAsync(item, isPrinted, timestamp, errorMessage);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError($"[PrintSync] UpdatePrintStatus threw for rfid={item.Rfid}", ex);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Pushes the final print status of EVERY item in the batch to the website:
+        /// succeeded items are marked "printed", failed items "not printed" (with the error).
+        /// Returns the RFID/code labels of items whose sync FAILED (empty list = all synced).
+        ///
+        /// Critically, this syncs <c>item.Item</c> — the exact ResourceItem that was printed —
+        /// rather than re-looking it up in SelectedProducts by RFID. The old re-match
+        /// (<c>FirstOrDefault(p =&gt; p.Rfid == item.Item.Rfid)</c>) silently collapsed items that
+        /// shared or lacked an RFID onto a single entry, and skipped items if the selection
+        /// changed mid-print, so the website received FEWER "printed" updates than labels
+        /// actually printed (e.g. 12 printed -> only 7 marked printed on bizpro.mn). One sync
+        /// attempt per printed item, every failure counted and surfaced.
+        ///
+        /// Syncs run in parallel (capped at 6 in-flight requests) instead of one-by-one:
+        /// a 500-item batch used to hold the "Хэвлэж байна" overlay for 5-10 minutes of
+        /// sequential HTTPS round-trips after the last label had already printed. The overlay
+        /// is switched to a dedicated "syncing X / Y" message and advances as items complete,
+        /// so the user can see the app is pushing statuses, not stuck printing.
+        /// </summary>
+        private async Task<List<string>> SyncBatchStatusesAsync(BatchPrintResult batchResult)
+        {
+            var itemsToSync = batchResult.ItemResults;
+            int total = itemsToSync.Count;
+            if (total == 0)
+            {
+                return new List<string>();
+            }
+
+            string syncFormat = GetResourceString("StatusSyncingProgress", "Веб рүү статус илгээж байна: {0} / {1}");
+            PrintProgressTotal = total;
+            PrintProgressCurrent = 0;
+            PrintProgressText = string.Format(syncFormat, 0, total);
+
+            // Progress<T> posts back to the UI thread that created it, so the parallel
+            // workers below can report safely.
+            var syncProgress = (IProgress<int>)new Progress<int>(done =>
+            {
+                PrintProgressCurrent = done;
+                PrintProgressText = string.Format(syncFormat, done, total);
+            });
+
+            var failedLabels = new System.Collections.Concurrent.ConcurrentBag<string>();
+            int completed = 0;
+            var timestamp = DateTime.Now;
+
+            using var throttle = new System.Threading.SemaphoreSlim(6);
+
+            var syncTasks = itemsToSync.Select(async itemResult =>
+            {
+                await throttle.WaitAsync();
+                try
+                {
+                    var item = itemResult.Item;
+                    bool printed = itemResult.Result.Success;
+
+                    bool synced = await SyncPrintStatusAsync(
+                        item,
+                        printed,
+                        timestamp,
+                        printed ? null : itemResult.Result.ErrorMessage);
+
+                    if (!synced)
+                    {
+                        var label = string.IsNullOrWhiteSpace(item.Rfid)
+                            ? (string.IsNullOrWhiteSpace(item.Code) ? "(no RFID/code)" : item.Code)
+                            : item.Rfid;
+                        failedLabels.Add(label);
+                        _logger.LogError($"[PrintSync] Website status sync FAILED for item: {label} ({item.ProductName}), printed={printed}");
+                    }
+                }
+                finally
+                {
+                    throttle.Release();
+                    syncProgress.Report(System.Threading.Interlocked.Increment(ref completed));
+                }
+            }).ToList();
+
+            await Task.WhenAll(syncTasks);
+
+            return failedLabels.ToList();
         }
 
         private async Task PrintSingleWithRfidAsync()
@@ -2537,25 +2620,23 @@ namespace BarTenderClone.ViewModels
                 printProgress
             );
 
-            // Save to Print History
-            foreach (var itemResult in batchResult.ItemResults)
+            // Save to Print History in a single write (per-item saves rewrote the whole
+            // history file once per item, stalling large batches).
+            var historyEntries = batchResult.ItemResults.Select(itemResult => new BarTenderClone.Models.PrintHistoryEntry
             {
-                var historyEntry = new BarTenderClone.Models.PrintHistoryEntry
-                {
-                    ProductCode = itemResult.Item.Code ?? string.Empty,
-                    ProductName = itemResult.Item.ProductName ?? string.Empty,
-                    RfidData = itemResult.LabelResults != null 
-                        ? string.Join(", ", itemResult.LabelResults.Where(l => l.Success).Select(l => l.RfidData)) 
-                        : string.Empty,
-                    QuantityRequested = itemResult.QuantityRequested,
-                    QuantitySucceeded = itemResult.QuantitySucceeded,
-                    PrinterName = SelectedPrinter ?? string.Empty,
-                    TemplateName = "Default",
-                    ErrorMessage = itemResult.Result.ErrorMessage ?? string.Empty
-                };
-                
-                await _printHistoryService.SaveEntryAsync(historyEntry);
-            }
+                ProductCode = itemResult.Item.Code ?? string.Empty,
+                ProductName = itemResult.Item.ProductName ?? string.Empty,
+                RfidData = itemResult.LabelResults != null
+                    ? string.Join(", ", itemResult.LabelResults.Where(l => l.Success).Select(l => l.RfidData))
+                    : string.Empty,
+                QuantityRequested = itemResult.QuantityRequested,
+                QuantitySucceeded = itemResult.QuantitySucceeded,
+                PrinterName = SelectedPrinter ?? string.Empty,
+                TemplateName = "Default",
+                ErrorMessage = itemResult.Result.ErrorMessage ?? string.Empty
+            }).ToList();
+
+            await _printHistoryService.SaveEntriesAsync(historyEntries);
 
             // Calculate totals using per-label tracking
             int totalLabelsSucceeded = batchResult.ItemResults.Sum(ir => ir.QuantitySucceeded);
@@ -2564,25 +2645,11 @@ namespace BarTenderClone.ViewModels
             if (batchResult.AllSucceeded)
             {
                 StatusMessage = $"Batch complete: {totalLabelsSucceeded} labels printed successfully!";
-                int statusSyncFailures = 0;
                 LastPrintStatus = $"✓ Batch completed at {batchResult.EndTime:HH:mm:ss}";
 
-                // Update status for all succeeded items
-                foreach (var item in batchResult.ItemResults.Where(r => r.Result.Success))
-                {
-                    var originalItem = SelectedProducts.FirstOrDefault(p => p.Rfid == item.Item.Rfid);
-                    if (originalItem != null)
-                    {
-                        originalItem.IsPrinted = true;
-                        originalItem.LastPrintedTime = DateTime.Now;
-                        originalItem.PrintErrorMessage = null;
-
-                        if (!await SyncPrintStatusAsync(originalItem, true, DateTime.Now))
-                        {
-                            statusSyncFailures++;
-                        }
-                    }
-                }
+                // Push "printed" status to the website for EVERY printed item.
+                var syncFailedRfids = await SyncBatchStatusesAsync(batchResult);
+                int statusSyncFailures = syncFailedRfids.Count;
 
                 if (statusSyncFailures > 0)
                 {
@@ -2593,7 +2660,11 @@ namespace BarTenderClone.ViewModels
                     $"Batch print completed successfully!\n\n" +
                     $"Total Items: {batchResult.SuccessCount}\n" +
                     $"Total Labels: {totalLabelsSucceeded}\n" +
+                    $"Website Status Synced: {batchResult.SuccessCount - statusSyncFailures}/{batchResult.SuccessCount}\n" +
                     $"Website Status Sync Failures: {statusSyncFailures}\n" +
+                    (statusSyncFailures > 0
+                        ? $"Failed RFIDs: {string.Join(", ", syncFailedRfids)}\n"
+                        : string.Empty) +
                     $"RFID Encoding: {(EnableRfidEncoding ? "Yes" : "No")}\n" +
                     $"Duration: {(batchResult.EndTime - batchResult.StartTime).TotalSeconds:F1} seconds",
                     "Batch Success",
@@ -2603,44 +2674,10 @@ namespace BarTenderClone.ViewModels
             }
             else
             {
-                int statusSyncFailures = 0;
-
-                // Update succeeded items
-                foreach (var item in batchResult.ItemResults.Where(r => r.Result.Success))
-                {
-                    var originalItem = SelectedProducts.FirstOrDefault(p => p.Rfid == item.Item.Rfid);
-                    if (originalItem != null)
-                    {
-                        originalItem.IsPrinted = true;
-                        originalItem.LastPrintedTime = DateTime.Now;
-                        originalItem.PrintErrorMessage = null;
-
-                        if (!await SyncPrintStatusAsync(originalItem, true, DateTime.Now))
-                        {
-                            statusSyncFailures++;
-                        }
-                    }
-                }
-
-                // Update failed items
-                foreach (var item in batchResult.ItemResults.Where(r => !r.Result.Success))
-                {
-                    var originalItem = SelectedProducts.FirstOrDefault(p => p.Rfid == item.Item.Rfid);
-                    if (originalItem != null)
-                    {
-                        originalItem.IsPrinted = false;
-                        originalItem.PrintErrorMessage = item.Result.ErrorMessage;
-
-                        if (!await SyncPrintStatusAsync(
-                            originalItem,
-                            false,
-                            DateTime.Now,
-                            item.Result.ErrorMessage))
-                        {
-                            statusSyncFailures++;
-                        }
-                    }
-                }
+                // Push the final status of every item (printed for successes, not-printed +
+                // error for failures) to the website in one throttled parallel pass.
+                var syncFailedRfids = await SyncBatchStatusesAsync(batchResult);
+                int statusSyncFailures = syncFailedRfids.Count;
 
                 StatusMessage = $"Batch stopped: {batchResult.SuccessCount} succeeded, {batchResult.FailureCount} failed";
                 if (statusSyncFailures > 0)

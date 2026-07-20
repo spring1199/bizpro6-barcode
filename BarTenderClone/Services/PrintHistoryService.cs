@@ -27,8 +27,20 @@ namespace BarTenderClone.Services
             _historyFilePath = Path.Combine(appDir, "print_history.json");
         }
 
-        public async Task SaveEntryAsync(PrintHistoryEntry entry)
+        public Task SaveEntryAsync(PrintHistoryEntry entry)
         {
+            return SaveEntriesAsync(new[] { entry });
+        }
+
+        // Batch prints used to call SaveEntryAsync per item, re-reading and re-writing the whole
+        // history file N times (O(N²) I/O for a 500-item batch). One call = one read + one write.
+        public async Task SaveEntriesAsync(IReadOnlyCollection<PrintHistoryEntry> newEntries)
+        {
+            if (newEntries.Count == 0)
+            {
+                return;
+            }
+
             await _semaphore.WaitAsync();
             try
             {
@@ -43,8 +55,8 @@ namespace BarTenderClone.Services
                     entries = new List<PrintHistoryEntry>();
                 }
 
-                entries.Insert(0, entry); // Add to the top
-                
+                entries.InsertRange(0, newEntries); // Add to the top, preserving batch order
+
                 // Keep only last 1000 entries to prevent file from getting too large
                 if (entries.Count > 1000)
                 {
@@ -56,7 +68,7 @@ namespace BarTenderClone.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Failed to save print history entry.", ex);
+                _logger.LogError("Failed to save print history entries.", ex);
             }
             finally
             {

@@ -9,7 +9,7 @@
     <sys:String x:Key="MenuSettings">Settings</sys:String>
     <sys:String x:Key="TextDarkMode">Dark Mode</sys:String>
     <sys:String x:Key="BtnLogout">Logout</sys:String>
-    <sys:String x:Key="AppVersion">Version 4.0.4</sys:String>
+    <sys:String x:Key="AppVersion">Version 4.0.5</sys:String>
     
     <!-- Login Screen -->
     <sys:String x:Key="LoginWelcomeBack">Welcome Back</sys:String>
@@ -290,5 +290,6 @@
     <sys:String x:Key="MsgActiveSelectionsTitle">Active Selections</sys:String>
     <sys:String x:Key="StatusLoading">Loading...</sys:String>
     <sys:String x:Key="StatusPrintingProgress">Printing: {0} / {1}</sys:String>
+    <sys:String x:Key="StatusSyncingProgress">Syncing status to website: {0} / {1}</sys:String>
     <sys:String x:Key="StatusNoItems">No items found or API error.</sys:String>
 </ResourceDictionary>

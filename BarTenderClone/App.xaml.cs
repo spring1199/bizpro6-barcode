@@ -29,10 +29,19 @@ namespace BarTenderClone
                     services.AddSingleton<ILoggingService, FileLoggingService>();
 
                     services.AddSingleton<ISessionService, SessionService>();
+                    // Explicit timeouts: the HttpClient default is 100 seconds, so a single
+                    // unreachable API host could stall a print-status sync (and the busy
+                    // overlay) for minutes. 20s is generous for these small JSON calls.
                     services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
-                        client.BaseAddress = new System.Uri(baseUrl));
+                    {
+                        client.BaseAddress = new System.Uri(baseUrl);
+                        client.Timeout = System.TimeSpan.FromSeconds(20);
+                    });
                     services.AddHttpClient<IApiService, ApiService>(client =>
-                        client.BaseAddress = new System.Uri(baseUrl));
+                    {
+                        client.BaseAddress = new System.Uri(baseUrl);
+                        client.Timeout = System.TimeSpan.FromSeconds(20);
+                    });
 
                     // Services
                     services.AddSingleton<IZplGeneratorService, ZplGeneratorService>();

@@ -621,8 +621,13 @@ namespace BarTenderClone.Services
             return new Uri($"{NormalizeBaseUrl(baseUrl)}/{relativePath.TrimStart('/')}");
         }
 
+        // Serializes trace writes: status syncs now run in parallel, and concurrent writes to
+        // the same fixed file names would throw sharing violations and corrupt the trace.
+        private static readonly System.Threading.SemaphoreSlim TraceWriteLock = new(1, 1);
+
         private static async Task WriteApiTraceAsync(string baseUrl, string requestPayload, string responsePayload)
         {
+            await TraceWriteLock.WaitAsync();
             try
             {
                 var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -638,6 +643,10 @@ namespace BarTenderClone.Services
             }
             catch
             {
+            }
+            finally
+            {
+                TraceWriteLock.Release();
             }
         }
 

@@ -63,7 +63,7 @@ Service lifecycle is managed through `IHost` with proper startup/shutdown hooks.
 - UTF-8 encoding support for Cyrillic/Unicode characters
 
 **ApiService** (`Services/ApiService.cs`):
-- Fetches `ResourceItem` data from backend API (https://app.chipmo.mn)
+- Fetches `ResourceItem` data from backend API (https://bizpro.mn, fallback https://api.bizpro.mn — configured in `appsettings.json`)
 - Handles ABP framework response wrapper deserialization
 - Updates print status back to server after successful printing
 - Bearer token authentication via `IAuthenticationService`
@@ -191,7 +191,7 @@ Templates are saved/loaded via `ITemplateService`:
 
 ## API Integration
 
-Backend API base URL: `https://app.chipmo.mn/api/services/app/`
+Backend API base URL: `https://bizpro.mn/api/services/app/` (fallback `https://api.bizpro.mn`, both configured in `appsettings.json` under `ApiSettings`)
 
 Key endpoints:
 - `POST /Resource/Resources`: Fetch paginated resources with filtering

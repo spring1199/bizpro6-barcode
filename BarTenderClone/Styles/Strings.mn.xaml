@@ -9,7 +9,7 @@
     <sys:String x:Key="MenuSettings">Тохиргоо</sys:String>
     <sys:String x:Key="TextDarkMode">Харанхуй горим</sys:String>
     <sys:String x:Key="BtnLogout">Системээс гарах</sys:String>
-    <sys:String x:Key="AppVersion">Хувилбар 4.0.4</sys:String>
+    <sys:String x:Key="AppVersion">Хувилбар 4.0.5</sys:String>
     
     <!-- Login Screen -->
     <sys:String x:Key="LoginWelcomeBack">Тавтай морилно уу</sys:String>
@@ -290,5 +290,6 @@
     <sys:String x:Key="MsgActiveSelectionsTitle">Сонгогдсон бараанууд</sys:String>
     <sys:String x:Key="StatusLoading">Ачаалж байна...</sys:String>
     <sys:String x:Key="StatusPrintingProgress">Хэвлэж байна: {0} / {1}</sys:String>
+    <sys:String x:Key="StatusSyncingProgress">Веб рүү статус илгээж байна: {0} / {1}</sys:String>
     <sys:String x:Key="StatusNoItems">Бараа олдсонгүй эсвэл API алдаа гарлаа.</sys:String>
 </ResourceDictionary>
